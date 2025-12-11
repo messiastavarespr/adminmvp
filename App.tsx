@@ -16,6 +16,8 @@ import Toast from './components/ui/Toast';
 import AccountsPayable from './components/AccountsPayable';
 import Sidebar from './components/Sidebar'; // Import new component
 import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
+import ChartOfAccounts from './components/ChartOfAccounts'; // Import new Component
+import Registries from './components/Registries'; // Import new Component
 import { OFXConverter } from './components/OFXConverter'; // Import new OFX Converter
 import { storageService } from './services/storageService';
 import { notificationService } from './services/notificationService'; // Import notification service
@@ -282,6 +284,7 @@ function AppContent() {
                 currentChurch={currentChurch}
               />
             )}
+            {activeTab === 'registries' && <Registries />}
             {activeTab === 'reconciliation' && <Reconciliation onManualAdd={handleReconciliationManual} />}
             {activeTab === 'scheduled' && (
               <ScheduledTransactions

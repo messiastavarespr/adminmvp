@@ -15,7 +15,9 @@ import {
   ClipboardList,
   Link,
   ChurchCross,
-  FileJson
+  FileJson,
+  List,
+  Database
 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import { AppView } from '../types';
@@ -65,7 +67,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const menuItems: { id: AppView; label: string; icon: any }[] = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'ledger', label: 'Livro Caixa', icon: BookOpen },
+    { id: 'registries', label: 'Cadastros', icon: Database },
     { id: 'reconciliation', label: 'Conciliação', icon: Link },
+
     { id: 'scheduled', label: 'Agendamentos', icon: CalendarClock },
     { id: 'payables', label: 'Contas a Pagar', icon: ClipboardList },
     { id: 'reports', label: 'Relatórios', icon: BarChart3 },

@@ -19,7 +19,7 @@ export enum UserRole {
   MEMBER = 'MEMBER'
 }
 
-export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools';
+export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries';
 
 export interface Church {
   id: string;
@@ -50,6 +50,7 @@ export interface Fund {
   description?: string;
   type: 'UNRESTRICTED' | 'RESTRICTED'; // Unrestricted (General) vs Restricted (Specific Purpose)
   churchId: string;
+  isSystemDefault?: boolean;
 }
 
 // New Entity: Accounting (Plano de Contas)
@@ -60,6 +61,8 @@ export interface AccountingAccount {
   type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
   churchId: string;
   isSystemDefault?: boolean; // If true, shouldn't be deleted easily
+  order?: number; // For drag and drop ordering
+  relatedCategoryId?: string; // Link to internal Category
 }
 
 export interface UserPermissions {
@@ -69,7 +72,7 @@ export interface UserPermissions {
   manageBudgets: boolean;
   manageChurches: boolean;
   manageUsers: boolean;
-  manageFunds: boolean; 
+  manageFunds: boolean;
   viewAuditLog: boolean;
   performBackup: boolean;
   performRestore: boolean;
