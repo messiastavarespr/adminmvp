@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "project_name": "MVPFin - Administração Financeira Eclesiástica",
+    "version": "2.0.0 Pro",
+    "description": "Sistema offline-first para gestão de tesouraria de igrejas com suporte a múltiplas filiais, controle de membros, reconciliação bancária inteligente e relatórios fiscais.",
+    "language": "pt-BR",
+    "last_updated": "2024-05-22"
+  },
+  "tech_stack": {
+    "framework": "React 19",
+    "bundler": "Built-in (via importmap/ES Modules in index.html)",
+    "styling": "Tailwind CSS (Dark/Light mode support via 'class' strategy)",
+    "icons": "Lucide React",
+    "state_management": "React Context API (FinanceContext)",
+    "persistence": "LocalStorage (storageService) with migration logic (v12)",
+    "ai_integration": "@google/genai (Gemini Flash 2.5) for OFX conversion",
+    "libraries": [
+      "recharts (Charts)",
+      "jspdf & jspdf-autotable (PDF Reports)",
+      "xlsx (Excel Export)",
+      "jszip (Backup generation)"
+    ]
+  },
+  "design_system": {
+    "theme": {
+      "light_bg": "bg-[#F7F7F7]",
+      "dark_bg": "dark:bg-slate-900",
+      "card_radius": "rounded-xl or rounded-2xl",
+      "primary_text": "text-gray-900 dark:text-white",
+      "secondary_text": "text-gray-500 dark:text-gray-400"
+    },
+    "semantic_colors": {
+      "income": "Emerald-600 (text/bg)",
+      "expense": "Rose-600 (text/bg)",
+      "transfer": "Blue-600 (text/bg)",
+      "warning": "Amber-500/600",
+      "info": "Indigo-500/600",
+      "neutral": "Slate-500"
+    },
+    "components": {
+      "buttons": "Rounded-lg, font-medium, transition-colors active:scale-95",
+      "inputs": "Rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2",
+      "modals": "Backdrop blur-sm, centered, zoom-in animation"
+    }
+  },
+  "business_rules": {
+    "transactions": {
+      "types": ["INCOME", "EXPENSE", "TRANSFER"],
+      "transfer_logic": "Atomic pair creation: 1 Debit (Source) + 1 Credit (Target) linked by relatedTransactionId",
+      "validation": "Amount > 0, Description required, FundId required, AccountId required."
+    },
+    "entities": {
+      "church": {
+        "types": ["HEADQUARTERS", "BRANCH"],
+        "attributes": ["logo", "cnpj", "address", "contact_info"]
+      },
+      "users": {
+        "roles": ["ADMIN", "TREASURER", "PASTOR", "MEMBER"],
+        "permissions": "Granular permissions object (UserPermissions) for non-admin roles."
+      },
+      "members": {
+        "types": ["MEMBER", "VISITOR", "SUPPLIER"],
+        "attributes": ["birthDate", "baptismDate"]
+      },
+      "funds": {
+        "types": ["UNRESTRICTED", "RESTRICTED"],
+        "purpose": "Segregation of resources (e.g., Building Fund vs General Fund)."
+      },
+      "accounting": {
+        "structure": "Simplified Chart of Accounts (Plano de Contas) linked to Categories and Accounts.",
+        "types": ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"]
+      }
+    },
+    "reconciliation": {
+      "matching_logic": {
+        "exact": "Same Date AND Same Amount (within 0.01 tolerance)",
+        "probable": "Date within +/- 3 days AND Same Amount"
+      },
+      "import": "Supports OFX parsing via Regex/String manip or Gemini AI for complex formats."
+    },
+    "security": {
+      "auth": "SHA-256 password hashing via Web Crypto API.",
+      "data_privacy": "Local storage only. No external database. Export/Import via encrypted JSON/ZIP."
+    }
+  },
+  "features": {
+    "dashboard": {
+      "kpis": ["Income", "Expense", "Balance", "Active Alerts"],
+      "charts": ["Evolution Area Chart", "Expenses Pie Chart"],
+      "filters": ["Weekly", "Monthly", "Quarterly", "Yearly"]
+    },
+    "ledger": {
+      "filters": ["Date Range", "Type", "Category", "Account", "Cost Center", "Fund"],
+      "actions": ["Receipt Generation", "Export to Excel"]
+    },
+    "scheduled": {
+      "recurrence": ["NONE", "WEEKLY", "MONTHLY", "YEARLY"],
+      "logic": "Generates real transaction upon confirmation. Supports finite or infinite occurrences."
+    },
+    "reports": {
+      "financial": "Detailed PDF with signatures.",
+      "tithing": "Member contribution history.",
+      "accounting": "DRE (Income Statement) and Trial Balance (Balancete).",
+      "fiscal_council": "Formal opinion document generation."
+    },
+    "tools": {
+      "ofx_converter": "Uses Gemini 2.5 Flash to convert PDF/Text bank statements to OFX."
+    }
+  },
+  "ai_persona": {
+    "role": "Senior Frontend Engineer & Product Architect",
+    "tone": "Professional, Technical, Detail-Oriented",
+    "constraints": [
+      "Do NOT use external backends; maintain offline-first architecture.",
+      "Ensure all UI changes support Dark Mode.",
+      "Keep the file structure flat (root directory) as per project convention.",
+      "Use 'storageService' for all data mutations.",
+      "Preserve existing data structures during updates to avoid breaking localStorage compatibility."
+    ]
+  }
+}

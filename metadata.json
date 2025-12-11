@@ -1,0 +1,7 @@
+{
+  "name": "Administração Financeira MVP",
+  "description": "Sistema de gestão financeira para igrejas com controle de tesouraria, agendamentos e relatórios.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

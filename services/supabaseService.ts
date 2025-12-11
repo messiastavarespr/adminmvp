@@ -1,0 +1,413 @@
+
+import { supabase } from './supabaseClient';
+import { AppData, Transaction, ScheduledTransaction, Category, CostCenter, Account, TransactionType, RecurrenceType, User, UserRole, Member, Church, AuditLog, Budget, Fund, AccountingAccount } from '../types';
+
+// Helper to map DB snake_case to CamelCase if needed, but for now we assume 1:1 or manual mapping
+// Our SQL uses snake_case keys (e.g. church_id), Types use camelCase (churchId).
+// We need to map them.
+
+const mapToCamel = (obj: any): any => {
+    if (Array.isArray(obj)) return obj.map(mapToCamel);
+    if (obj !== null && typeof obj === 'object') {
+        return Object.keys(obj).reduce((acc, key) => {
+            const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+            acc[camelKey] = mapToCamel(obj[key]);
+            return acc;
+        }, {} as any);
+    }
+    return obj;
+};
+
+const mapToSnake = (obj: any): any => {
+    if (Array.isArray(obj)) return obj.map(mapToSnake);
+    if (obj !== null && typeof obj === 'object') {
+        return Object.keys(obj).reduce((acc, key) => {
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            acc[snakeKey] = mapToSnake(obj[key]);
+            return acc;
+        }, {} as any);
+    }
+    return obj;
+};
+
+const defaultChurchId = 'ch_hq'; // Fallback
+
+export const supabaseService = {
+    // --- Core Fetch ---
+    getData: async (): Promise<AppData> => {
+        // Parallel fetch for MVP parity
+        const [
+            { data: transactions },
+            { data: categories },
+            { data: accounts },
+            { data: members },
+            { data: churches },
+            { data: scheduled },
+            { data: funds },
+            { data: costCenters },
+            { data: accountingAccounts },
+            { data: budgets },
+            { data: auditLogs },
+            { data: users },
+            { data: notifications }
+        ] = await Promise.all([
+            supabase.from('transactions').select('*'),
+            supabase.from('categories').select('*'),
+            supabase.from('accounts').select('*'),
+            supabase.from('members').select('*'),
+            supabase.from('churches').select('*'),
+            supabase.from('scheduled_transactions').select('*'),
+            supabase.from('funds').select('*'),
+            supabase.from('cost_centers').select('*'),
+            supabase.from('accounting_accounts').select('*'),
+            supabase.from('budgets').select('*'),
+            supabase.from('audit_logs').select('*').order('date', { ascending: false }).limit(500),
+            supabase.from('users').select('*'),
+            supabase.from('notifications').select('*')
+        ]);
+
+        return {
+            transactions: mapToCamel(transactions || []),
+            categories: mapToCamel(categories || []),
+            accounts: mapToCamel(accounts || []),
+            members: mapToCamel(members || []),
+            churches: mapToCamel(churches || []),
+            scheduled: mapToCamel(scheduled || []),
+            funds: mapToCamel(funds || []),
+            costCenters: mapToCamel(costCenters || []),
+            accountingAccounts: mapToCamel(accountingAccounts || []),
+            budgets: mapToCamel(budgets || []),
+            auditLogs: mapToCamel(auditLogs || []),
+            users: mapToCamel(users || []),
+            notifications: mapToCamel(notifications || []),
+            theme: 'light', // Local preference only
+        };
+    },
+
+    // --- Transactions ---
+    // --- Transactions ---
+    addTransaction: async (t: Transaction) => {
+        const { id, ...payload } = mapToSnake(t);
+        const { error } = await supabase.from('transactions').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+
+    updateTransaction: async (t: Transaction) => {
+        const { id, ...payload } = mapToSnake(t);
+        const { error } = await supabase.from('transactions').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+
+    deleteTransaction: async (id: string) => {
+        const { error } = await supabase.from('transactions').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Categories ---
+    addCategory: async (c: Category) => {
+        const { id, ...payload } = mapToSnake(c);
+        const { error } = await supabase.from('categories').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+
+    deleteCategory: async (id: string) => {
+        const { error } = await supabase.from('categories').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Accounts ---
+    addAccount: async (a: Account) => {
+        const { id, ...payload } = mapToSnake(a);
+        const { error } = await supabase.from('accounts').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+
+    updateAccount: async (a: Account) => {
+        const { id, ...payload } = mapToSnake(a);
+        const { error } = await supabase.from('accounts').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+
+    deleteAccount: async (id: string) => {
+        const { error } = await supabase.from('accounts').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Scheduled ---
+    addScheduled: async (s: ScheduledTransaction) => {
+        const { id, ...payload } = mapToSnake(s);
+        const { error } = await supabase.from('scheduled_transactions').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+
+    updateScheduled: async (s: ScheduledTransaction) => {
+        const { id, ...payload } = mapToSnake(s);
+        const { error } = await supabase.from('scheduled_transactions').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+
+    deleteScheduled: async (id: string) => {
+        const { error } = await supabase.from('scheduled_transactions').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Members ---
+    addMember: async (m: Member) => {
+        const { id, ...payload } = mapToSnake(m);
+        const { error } = await supabase.from('members').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+
+    updateMember: async (m: Member) => {
+        const { id, ...payload } = mapToSnake(m);
+        const { error } = await supabase.from('members').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+
+    deleteMember: async (id: string) => {
+        const { error } = await supabase.from('members').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Audit ---
+    logAction: async (user: User | null, action: string, entity: string, details: string) => {
+        if (!user) return;
+        const log = {
+            date: new Date().toISOString(),
+            user_id: user.id,
+            user_name: user.name,
+            action,
+            entity,
+            details,
+            church_id: user.churchId
+        };
+        await supabase.from('audit_logs').insert([log]);
+    },
+
+    // --- Specialized Operations ---
+
+    addTransfer: async (
+        amount: number,
+        fromAccountId: string,
+        toAccountId: string,
+        fundId: string,
+        date: string,
+        description: string,
+        churchId: string,
+        user: User | null
+    ) => {
+        // Generate IDs locally or rely on DB defaults. 
+        // We need the IDs for the relationship.
+        // UUID v4 generation? supabase-js has no built-in generator? 
+        // We can use crypto.randomUUID() if env supports it, or Math hack.
+        const genUuid = () => crypto.randomUUID();
+
+        // We must fetch account names for description? Or pass them?
+        // StorageService fetched them. We might skip fetching and trust IDs, 
+        // but the description needs names? Old logic: "Transferência para {name}"
+        // Let's just use generic description or fetch. Fetching is safer.
+
+        const { data: accounts } = await supabase.from('accounts').select('id, name').in('id', [fromAccountId, toAccountId]);
+        const fromName = accounts?.find((a: any) => a.id === fromAccountId)?.name || 'Conta Origem';
+        const toName = accounts?.find((a: any) => a.id === toAccountId)?.name || 'Conta Destino';
+
+        const id1 = genUuid();
+        const id2 = genUuid();
+
+        const debit = {
+            id: id1,
+            date,
+            amount,
+            description: `Transferência para ${toName} - ${description}`,
+            account_id: fromAccountId,
+            fund_id: fundId,
+            type: TransactionType.TRANSFER, // 'TRANSFER'
+            transfer_direction: 'OUT',
+            is_paid: true,
+            church_id: churchId,
+            related_transaction_id: id2
+        };
+
+        const credit = {
+            id: id2,
+            date,
+            amount,
+            description: `Transferência de ${fromName} - ${description}`,
+            account_id: toAccountId,
+            fund_id: fundId,
+            type: TransactionType.TRANSFER, // 'TRANSFER'
+            transfer_direction: 'IN',
+            is_paid: true,
+            church_id: churchId,
+            related_transaction_id: id1
+        };
+
+        await supabase.from('transactions').insert([debit, credit]);
+    },
+
+    processScheduledTransaction: async (scheduledId: string, accountId: string, paymentDate: string, user: User | null) => {
+        // 1. Fetch Scheduled Item
+        const { data: s } = await supabase.from('scheduled_transactions').select('*').eq('id', scheduledId).single();
+        if (!s) return;
+
+        const scheduledItem = mapToCamel(s) as ScheduledTransaction;
+
+        // 2. Create Transaction
+        const newTx: any = {
+            date: paymentDate,
+            amount: scheduledItem.amount,
+            description: scheduledItem.title,
+            category_id: scheduledItem.categoryId,
+            cost_center_id: scheduledItem.costCenterId,
+            fund_id: scheduledItem.fundId,
+            account_id: accountId,
+            type: scheduledItem.type,
+            is_paid: true,
+            scheduled_id: scheduledItem.id,
+            church_id: scheduledItem.churchId,
+            attachments: [] // Todo
+        };
+
+        await supabase.from('transactions').insert([newTx]);
+
+        // 3. Update Scheduled Item Recurrence
+        let updates: any = {};
+        if (scheduledItem.recurrence === RecurrenceType.NONE) {
+            updates.is_active = false;
+        } else {
+            let shouldContinue = true;
+            let newOccurrences = scheduledItem.occurrences;
+
+            if (typeof scheduledItem.occurrences === 'number') {
+                if (scheduledItem.occurrences > 1) {
+                    newOccurrences = scheduledItem.occurrences - 1;
+                } else {
+                    shouldContinue = false;
+                    newOccurrences = 0;
+                    updates.is_active = false;
+                }
+                updates.occurrences = newOccurrences;
+            }
+
+            if (shouldContinue) {
+                const currentDue = new Date(scheduledItem.dueDate);
+                let nextDue = new Date(currentDue);
+                switch (scheduledItem.recurrence) {
+                    case RecurrenceType.WEEKLY: nextDue.setDate(currentDue.getDate() + 7); break;
+                    case RecurrenceType.MONTHLY: nextDue.setMonth(currentDue.getMonth() + 1); break;
+                    case RecurrenceType.YEARLY: nextDue.setFullYear(currentDue.getFullYear() + 1); break;
+                }
+                updates.due_date = nextDue.toISOString().split('T')[0];
+            }
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await supabase.from('scheduled_transactions').update(updates).eq('id', scheduledId);
+        }
+
+        // Log
+        await supabaseService.logAction(user, 'UPDATE', 'TRANSACTION', `Baixou agendamento: ${scheduledItem.title}`);
+    },
+
+    // --- Budgets ---
+    setBudget: async (budget: Budget) => {
+        // Upsert based on category_id + church_id unique constraint
+        // DB Schema: unique(category_id, church_id)
+        // budget has 'id', if unique violation it updates? 
+        // We should use upsert.
+        const payload = mapToSnake(budget);
+        // Ensure we don't send 'id' if we want to rely on conflict? 
+        // Or we send ID if it exists.
+        // If we are setting a budget, we might not know the ID if it's new but the pair exists.
+        // Best is to use onConflict: 'category_id, church_id'.
+
+        await supabase.from('budgets').upsert(payload, { onConflict: 'category_id,church_id' });
+    },
+
+    deleteBudget: async (categoryId: string) => {
+        await supabase.from('budgets').delete().eq('category_id', categoryId);
+    },
+
+    // --- Other CRUD ---
+    addCostCenter: async (cc: CostCenter) => {
+        const { id, ...payload } = mapToSnake(cc);
+        await supabase.from('cost_centers').insert([{ id, ...payload }]);
+    },
+    updateCostCenter: async (cc: CostCenter) => {
+        const { id, ...payload } = mapToSnake(cc);
+        await supabase.from('cost_centers').update(payload).eq('id', id);
+    },
+    deleteCostCenter: async (id: string) => {
+        await supabase.from('cost_centers').delete().eq('id', id);
+    },
+
+    // --- Funds ---
+    addFund: async (f: Fund) => {
+        const { id, ...payload } = mapToSnake(f);
+        const { error } = await supabase.from('funds').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+    updateFund: async (f: Fund) => {
+        const { id, ...payload } = mapToSnake(f);
+        const { error } = await supabase.from('funds').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+    deleteFund: async (id: string) => {
+        const { error } = await supabase.from('funds').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Churches ---
+    addChurch: async (c: Church) => {
+        const { id, ...payload } = mapToSnake(c);
+        const { error } = await supabase.from('churches').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+    updateChurch: async (c: Church) => {
+        const { id, ...payload } = mapToSnake(c);
+        const { error } = await supabase.from('churches').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+    deleteChurch: async (id: string) => {
+        const { error } = await supabase.from('churches').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Users ---
+    updateUser: async (u: User) => {
+        const { id, ...payload } = mapToSnake(u);
+        const { error } = await supabase.from('users').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+    addUser: async (u: User) => {
+        const { id, ...payload } = mapToSnake(u);
+        const { error } = await supabase.from('users').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+    deleteUser: async (id: string) => {
+        const { error } = await supabase.from('users').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    updateCategory: async (c: Category) => {
+        const { id, ...payload } = mapToSnake(c);
+        const { error } = await supabase.from('categories').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Accounting Accounts ---
+    addAccountingAccount: async (a: AccountingAccount) => {
+        const { id, ...payload } = mapToSnake(a);
+        const { error } = await supabase.from('accounting_accounts').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+    updateAccountingAccount: async (a: AccountingAccount) => {
+        const { id, ...payload } = mapToSnake(a);
+        const { error } = await supabase.from('accounting_accounts').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+    deleteAccountingAccount: async (id: string) => {
+        const { error } = await supabase.from('accounting_accounts').delete().eq('id', id);
+        if (error) throw error;
+    },
+};
