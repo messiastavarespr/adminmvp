@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
 import { Member, UserRole } from '../types';
-import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye } from './ui/Icons';
+import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import ConfirmationModal from './ConfirmationModal';
 import SearchBox from './ui/SearchBox';
 import MemberDetailsModal from './MemberDetailsModal';
 import ErrorMessage from './ui/ErrorMessage';
+import ImportMembersModal from './ImportMembersModal';
 
 interface MembersProps {
   members: Member[];
@@ -21,6 +22,8 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const { refreshData } = useFinance(); // Certificando de pegar o refreshData
 
   // Form State
   const [showForm, setShowForm] = useState(false);
@@ -207,12 +210,21 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
       <div className="flex flex-col md:flex-row gap-4 items-center bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
         <SearchBox value={search} onChange={setSearch} placeholder={activeTab === 'MEMBERS' ? "Buscar membro..." : "Buscar fornecedor..."} />
         {canEdit && (
-          <button
-            onClick={() => handleOpenForm()}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-          >
-            <Plus size={18} /> {activeTab === 'MEMBERS' ? 'Novo Membro' : 'Novo Fornecedor'}
-          </button>
+          <div className="flex gap-2 w-full md:w-auto">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              title="Importar Excel"
+            >
+              <FileSpreadsheet size={18} /> <span className="hidden sm:inline">Importar</span>
+            </button>
+            <button
+              onClick={() => handleOpenForm()}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus size={18} /> {activeTab === 'MEMBERS' ? 'Novo Membro' : 'Novo Fornecedor'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -540,6 +552,13 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
         isOpen={!!viewingMember}
         onClose={() => setViewingMember(null)}
         member={viewingMember}
+      />
+
+      <ImportMembersModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => { refreshData(); }}
+        currentChurchId={currentChurchId}
       />
     </div>
   );
