@@ -16,6 +16,8 @@ import Toast from './components/ui/Toast';
 import AccountsPayable from './components/AccountsPayable';
 import Assets from './components/Assets';
 import Sidebar from './components/Sidebar'; // Import new component
+import Registries from './components/Registries';
+import { TithesEntry } from './components/TithesEntry';
 import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
 import { Tools } from './components/Tools'; // Import centralized Tools component
 import { storageService } from './services/storageService';
@@ -283,6 +285,8 @@ function AppContent() {
                 currentChurch={currentChurch}
               />
             )}
+            {activeTab === 'tithes' && <TithesEntry />}
+            {activeTab === 'registries' && <Registries />}
             {activeTab === 'reconciliation' && <Reconciliation onManualAdd={handleReconciliationManual} />}
             {activeTab === 'scheduled' && (
               <ScheduledTransactions
