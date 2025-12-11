@@ -144,6 +144,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
         </div>
+
+        {/* Developer Credit */}
+        <div className="mt-4 pb-2 text-center">
+          <p className="text-[10px] text-gray-400 dark:text-slate-600 font-medium">
+            Desenvolvido por Messias Tavares
+          </p>
+        </div>
       </div>
     </aside>
   );
