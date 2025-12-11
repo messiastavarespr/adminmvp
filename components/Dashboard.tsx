@@ -104,16 +104,18 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
 
   const finalBalance = income - expense; // Simple period balance
 
-  // --- OPTIMIZATION: Evolution Data ---
+  // --- OPTIMIZATION: Evolution Data (Actual + Projected) ---
   const evolutionData = useMemo(() => {
-    const dataMap: Record<string, { name: string, income: number, expense: number, balance: number, date: string }> = {};
+    const dataMap: Record<string, any> = {};
     const isYearly = timeRange === 'YEARLY' || timeRange === 'SEMIANNUAL';
-    const sorted = [...filteredTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    sorted.forEach(t => {
+    // 1. Processing Actuals
+    const sortedTransactions = [...filteredTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    sortedTransactions.forEach(t => {
       const tDate = new Date(t.date);
       const userTimezoneOffset = tDate.getTimezoneOffset() * 60000;
       const adjustedDate = new Date(tDate.getTime() + userTimezoneOffset);
+
       let key, label;
       if (isYearly) {
         key = `${adjustedDate.getFullYear()}-${adjustedDate.getMonth()}`;
@@ -122,16 +124,72 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
         key = t.date;
         label = adjustedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       }
+
       if (!dataMap[key]) {
-        dataMap[key] = { name: label, income: 0, expense: 0, balance: 0, date: key };
+        dataMap[key] = { name: label, income: 0, expense: 0, balance: 0, date: key, incomeProjected: 0, expenseProjected: 0 };
       }
+
       if (t.type === TransactionType.INCOME) dataMap[key].income += t.amount;
       if (t.type === TransactionType.EXPENSE) dataMap[key].expense += t.amount;
-
       dataMap[key].balance = dataMap[key].income - dataMap[key].expense;
     });
-    return Object.values(dataMap);
-  }, [filteredTransactions, timeRange]);
+
+    // 2. Processing Projections (Future)
+    // We only project if we are in a view that makes sense (not looking at past years)
+    // For simplicity, we project next 3 months mainly for Monthly/Weekly views, 
+    // or if the TimeRange includes future.
+    // But standard Logic: Add future points.
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const limitDate = new Date(today);
+    limitDate.setDate(today.getDate() + 60); // 60 Days Projection
+
+    scheduled.filter(s => s.isActive).forEach(Item => {
+      let currentDue = new Date(Item.dueDate);
+      // Adjust if due date is in the past (simulate next recurrence)
+      // For MVP, we respect the Item.dueDate. If it's past, it's late (we could show as late, but let's skip for projection).
+
+      // Loop for occurrences within limit
+      let occurrencesToAdd = 5; // Safety break
+
+      while (currentDue <= limitDate && occurrencesToAdd > 0) {
+        if (currentDue >= today) {
+          const dayStr = currentDue.toISOString().split('T')[0]; // YYYY-MM-DD
+
+          // Determine Key based on TimeRange
+          let key, label;
+          if (isYearly) {
+            key = `${currentDue.getFullYear()}-${currentDue.getMonth()}`;
+            label = currentDue.toLocaleDateString('pt-BR', { month: 'short' });
+          } else {
+            key = dayStr;
+            label = currentDue.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          }
+
+          if (!dataMap[key]) {
+            dataMap[key] = { name: label, income: 0, expense: 0, balance: 0, date: isYearly ? `${key}-01` : key, incomeProjected: 0, expenseProjected: 0 };
+          }
+
+          if (Item.type === TransactionType.INCOME) dataMap[key].incomeProjected += Item.amount;
+          if (Item.type === TransactionType.EXPENSE) dataMap[key].expenseProjected += Item.amount;
+          // We don't touch 'balance' (Actual) but we could add 'balanceProjected'
+        }
+
+        // Next Recurrence
+        switch (Item.recurrence) {
+          case 'WEEKLY': currentDue.setDate(currentDue.getDate() + 7); break;
+          case 'MONTHLY': currentDue.setMonth(currentDue.getMonth() + 1); break;
+          case 'YEARLY': currentDue.setFullYear(currentDue.getFullYear() + 1); break;
+          case 'NONE': occurrencesToAdd = 0; break;
+          default: occurrencesToAdd = 0;
+        }
+        occurrencesToAdd--;
+      }
+    });
+
+    return Object.values(dataMap).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [filteredTransactions, scheduled, timeRange]);
 
   // --- OPTIMIZATION: Pie Data ---
   const pieData = useMemo(() => {
@@ -423,6 +481,11 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
 
                       <Area type="monotone" dataKey="income" name="Entradas" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" strokeWidth={2} />
                       <Area type="monotone" dataKey="expense" name="Saídas" stroke="#f43f5e" fillOpacity={1} fill="url(#colorExpense)" strokeWidth={2} />
+
+                      {/* Projections - Dashed Areas */}
+                      <Area type="monotone" dataKey="incomeProjected" name="Ent. Prevista" stroke="#10b981" strokeDasharray="5 5" fillOpacity={0.1} fill="#10b981" strokeWidth={2} />
+                      <Area type="monotone" dataKey="expenseProjected" name="Saída Prevista" stroke="#f43f5e" strokeDasharray="5 5" fillOpacity={0.1} fill="#f43f5e" strokeWidth={2} />
+
                       <Line type="monotone" dataKey="balance" name="Saldo" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
 
                       <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />

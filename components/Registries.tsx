@@ -19,7 +19,7 @@ export default function Registries() {
     const {
         data, currentUser,
         addCategory, updateCategory, deleteCategory,
-        addAccount, updateAccount, deleteAccount,
+        addAccount, updateAccount, deleteAccount, reorderAccounts,
         addCostCenter, updateCostCenter, deleteCostCenter,
         addFund, updateFund, deleteFund,
         addChurch, updateChurch, deleteChurch,
@@ -181,11 +181,16 @@ export default function Registries() {
         sortedAccounts[index] = sortedAccounts[otherIndex];
         sortedAccounts[otherIndex] = temp;
 
+        const updates: any[] = [];
         for (let i = 0; i < sortedAccounts.length; i++) {
-            const acc = sortedAccounts[i];
-            if ((acc.order ?? -1) !== i) {
-                await updateAccount({ ...acc, order: i });
+            if ((sortedAccounts[i].order ?? -1) !== i) {
+                const updated = { ...sortedAccounts[i], order: i };
+                updates.push(updated);
             }
+        }
+
+        if (updates.length > 0) {
+            await reorderAccounts(updates);
         }
     };
 

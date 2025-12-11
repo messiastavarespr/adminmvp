@@ -221,6 +221,18 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
 
   const addAccount = async (a: Account) => { await supabaseService.addAccount(a); refreshData(); };
   const updateAccount = async (a: Account) => { await supabaseService.updateAccount(a); refreshData(); };
+  const reorderAccounts = async (orderedAccounts: Account[]) => {
+    // Optimistic Update
+    const newAccounts = data.accounts.map(acc => {
+      const updated = orderedAccounts.find(u => u.id === acc.id);
+      return updated ? updated : acc;
+    });
+    setData({ ...data, accounts: newAccounts });
+
+    // Persist (Batch)
+    await Promise.all(orderedAccounts.map(a => supabaseService.updateAccount(a)));
+    refreshData();
+  };
   const deleteAccount = async (id: string) => { await supabaseService.deleteAccount(id); refreshData(); };
 
   const addCostCenter = async (cc: CostCenter) => { await supabaseService.addCostCenter(cc); refreshData(); };
@@ -279,6 +291,7 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       addTransfer,
       addAccount,
       updateAccount,
+      reorderAccounts,
       deleteAccount,
       addCostCenter,
       updateCostCenter,
