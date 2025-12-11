@@ -32,12 +32,17 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
   const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [type, setType] = useState<Member['type']>('MEMBER');
 
   // Member Specific
   const [birthDate, setBirthDate] = useState('');
   const [baptismDate, setBaptismDate] = useState('');
+  const [maritalStatus, setMaritalStatus] = useState('');
+  const [gender, setGender] = useState('');
+  const [rg, setRg] = useState('');
 
   // Supplier Specific
   const [document, setDocument] = useState(''); // CPF/CNPJ
@@ -66,10 +71,15 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
       setPhone(member.phone || '');
       setEmail(member.email || '');
       setAddress(member.address || '');
+      setAddressNumber(member.addressNumber || '');
       setCity(member.city || '');
+      setState(member.state || '');
       setType(member.type);
       setBirthDate(member.birthDate || '');
       setBaptismDate(member.baptismDate || '');
+      setMaritalStatus(member.maritalStatus || '');
+      setGender(member.gender || '');
+      setRg(member.rg || '');
       setDocument(member.document || '');
       setNotes(member.notes || '');
     } else {
@@ -79,10 +89,15 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
       setPhone('');
       setEmail('');
       setAddress('');
+      setAddressNumber('');
       setCity('');
+      setState('');
       setType(activeTab === 'MEMBERS' ? 'MEMBER' : 'SUPPLIER');
       setBirthDate('');
       setBaptismDate('');
+      setMaritalStatus('');
+      setGender('');
+      setRg('');
       setDocument('');
       setNotes('');
     }
@@ -118,11 +133,17 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
       phone,
       email,
       address,
+      addressNumber,
       city,
+      state,
       // Specific fields based on type
       birthDate: type !== 'SUPPLIER' ? birthDate : undefined,
       baptismDate: type !== 'SUPPLIER' ? baptismDate : undefined,
-      document: type === 'SUPPLIER' ? document : undefined,
+      maritalStatus: type !== 'SUPPLIER' ? maritalStatus : undefined,
+      gender: type !== 'SUPPLIER' ? gender : undefined,
+      rg: type !== 'SUPPLIER' ? rg : undefined,
+      // Document is now used for Member (CPF) and Supplier (CNPJ/CPF)
+      document: document || undefined,
       notes: type === 'SUPPLIER' ? notes : undefined
     };
 
@@ -211,6 +232,23 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
               {/* Section: Basic Info */}
               <div className="space-y-4">
                 <h4 className="text-xs font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-slate-700 pb-1">Dados Principais</h4>
+
+                {activeTab === 'MEMBERS' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="type" checked={type === 'MEMBER'} onChange={() => setType('MEMBER')} className="text-blue-600" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Membro</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="type" checked={type === 'VISITOR'} onChange={() => setType('VISITOR')} className="text-blue-600" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Visitante</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                     {activeTab === 'MEMBERS' ? 'Nome Completo *' : 'Razão Social / Nome *'}
@@ -225,17 +263,58 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                 </div>
 
                 {activeTab === 'MEMBERS' ? (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="type" checked={type === 'MEMBER'} onChange={() => setType('MEMBER')} className="text-blue-600" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Membro</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="type" checked={type === 'VISITOR'} onChange={() => setType('VISITOR')} className="text-blue-600" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Visitante</span>
-                      </label>
+                  <div className="space-y-4">
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">CPF</label>
+                        <input
+                          type="text"
+                          value={document}
+                          onChange={e => setDocument(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="000.000.000-00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">RG</label>
+                        <input
+                          type="text"
+                          value={rg}
+                          onChange={e => setRg(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Estado Civil</label>
+                        <select
+                          value={maritalStatus}
+                          onChange={e => setMaritalStatus(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="SINGLE">Solteiro(a)</option>
+                          <option value="MARRIED">Casado(a)</option>
+                          <option value="DIVORCED">Divorciado(a)</option>
+                          <option value="WIDOWED">Viúvo(a)</option>
+                          <option value="STABLE_UNION">União Estável</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sexo</label>
+                        <select
+                          value={gender}
+                          onChange={e => setGender(e.target.value)}
+                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="MALE">Masculino</option>
+                          <option value="FEMALE">Feminino</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -280,8 +359,8 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                   {activeTab === 'MEMBERS' ? 'Dados Pessoais & Endereço' : 'Endereço & Serviços'}
                 </h4>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="col-span-3">
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Endereço</label>
                     <input
                       type="text"
@@ -291,12 +370,33 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                     />
                   </div>
                   <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Número</label>
+                    <input
+                      type="text"
+                      value={addressNumber}
+                      onChange={e => setAddressNumber(e.target.value)}
+                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cidade</label>
                     <input
                       type="text"
                       value={city}
                       onChange={e => setCity(e.target.value)}
                       className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">UF</label>
+                    <input
+                      type="text"
+                      value={state}
+                      onChange={e => setState(e.target.value)}
+                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                      maxLength={2}
                     />
                   </div>
                 </div>

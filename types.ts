@@ -101,9 +101,14 @@ export interface Member {
   phone?: string;
   email?: string;
   address?: string;
+  addressNumber?: string;
   city?: string;
+  state?: string;
   birthDate?: string;
   baptismDate?: string;
+  maritalStatus?: string;
+  gender?: string;
+  rg?: string;
   document?: string;
   notes?: string;
 }
