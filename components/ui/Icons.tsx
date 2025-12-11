@@ -18,6 +18,8 @@ import {
   CheckCircle,
   Download,
   Filter,
+  Wrench,
+  Loader2,
   Database,
   AlertTriangle,
   PieChart,
@@ -200,5 +202,6 @@ export {
   ShieldCheck,
   Zap,
   ChevronUp,
-  ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt
+  ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt,
+  Wrench, Loader2
 };

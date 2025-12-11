@@ -16,7 +16,7 @@ import Toast from './components/ui/Toast';
 import AccountsPayable from './components/AccountsPayable';
 import Sidebar from './components/Sidebar'; // Import new component
 import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
-import { OFXConverter } from './components/OFXConverter'; // Import new OFX Converter
+import { Tools } from './components/Tools'; // Import centralized Tools component
 import { storageService } from './services/storageService';
 import { notificationService } from './services/notificationService'; // Import notification service
 import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
@@ -302,7 +302,7 @@ function AppContent() {
             {activeTab === 'members' && (
               <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} />
             )}
-            {activeTab === 'tools' && <OFXConverter />}
+            {activeTab === 'tools' && <Tools />}
             {activeTab === 'settings' && <Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />}
           </div>
         </div>
