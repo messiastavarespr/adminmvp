@@ -10,7 +10,7 @@ interface TransactionModalProps {
   onSave: (transaction: Omit<Transaction, 'id' | 'churchId'> & { id?: string }) => void;
   onTransfer?: (amount: number, from: string, to: string, fundId: string, date: string, desc: string) => void;
   categories: Category[];
-  costCenters: CostCenter[]; 
+  costCenters: CostCenter[];
   accounts: Account[];
   funds?: Fund[]; // Added Funds prop
   members: Member[];
@@ -20,11 +20,11 @@ interface TransactionModalProps {
   transactions?: Transaction[];
 }
 
-const TransactionModal: React.FC<TransactionModalProps> = ({ 
-  isOpen, onClose, onSave, onTransfer, categories, costCenters, accounts, funds = [], members, initialType, editingTransaction, initialData, transactions = [] 
+const TransactionModal: React.FC<TransactionModalProps> = ({
+  isOpen, onClose, onSave, onTransfer, categories, costCenters, accounts, funds = [], members, initialType, editingTransaction, initialData, transactions = []
 }) => {
   const [type, setType] = useState<TransactionType>(initialType || TransactionType.INCOME);
-  
+
   const getLocalDate = () => {
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
@@ -34,19 +34,19 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [date, setDate] = useState(getLocalDate());
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  
+
   // Income/Expense Fields
   const [categoryId, setCategoryId] = useState('');
-  const [costCenterId, setCostCenterId] = useState(''); 
+  const [costCenterId, setCostCenterId] = useState('');
   const [fundId, setFundId] = useState(''); // New Fund ID State
   const [accountId, setAccountId] = useState('');
   const [memberId, setMemberId] = useState('');
-  
+
   // Transfer Fields
   const [toAccountId, setToAccountId] = useState('');
 
   // Attachments (Multi)
-  const [attachments, setAttachments] = useState<{name: string, data: string}[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string, data: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,38 +66,44 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setFundId(editingTransaction.fundId || funds[0]?.id || '');
         setAccountId(editingTransaction.accountId);
         setMemberId(editingTransaction.memberOrSupplierId || '');
-        
+
         if (editingTransaction.attachments) {
-           setAttachments(editingTransaction.attachments.map((data, idx) => ({
-             name: `Anexo ${idx + 1}`, 
-             data
-           })));
+          setAttachments(editingTransaction.attachments.map((data, idx) => ({
+            name: `Anexo ${idx + 1}`,
+            data
+          })));
         } else {
-           setAttachments([]);
+          setAttachments([]);
         }
-        
+
       } else {
         // Create Mode (or Pre-fill Mode)
         if (initialData) {
-           setType(initialData.type || initialType || TransactionType.INCOME);
-           setDate(initialData.date || getLocalDate());
-           setAmount(initialData.amount ? initialData.amount.toString() : '');
-           setDescription(initialData.description || '');
-           setCategoryId(initialData.categoryId || '');
-           setCostCenterId(initialData.costCenterId || '');
-           setFundId(initialData.fundId || funds[0]?.id || '');
-           setAccountId(initialData.accountId || (accounts.length > 0 ? accounts[0].id : ''));
+          setType(initialData.type || initialType || TransactionType.INCOME);
+          setDate(initialData.date || getLocalDate());
+          setAmount(initialData.amount ? initialData.amount.toString() : '');
+          setDescription(initialData.description || '');
+          setCategoryId(initialData.categoryId || '');
+          setCostCenterId(initialData.costCenterId || '');
+
+          const defaultFund = funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
+          setFundId(initialData.fundId || defaultFund?.id || '');
+
+          setAccountId(initialData.accountId || (accounts.length > 0 ? accounts[0].id : ''));
         } else {
-           setType(initialType || TransactionType.INCOME);
-           setDate(getLocalDate());
-           setAmount('');
-           setDescription('');
-           setCategoryId('');
-           setCostCenterId('');
-           setFundId(funds[0]?.id || ''); // Default to first fund (usually General)
-           setAccountId(accounts.length > 0 ? accounts[0].id : '');
+          setType(initialType || TransactionType.INCOME);
+          setDate(getLocalDate());
+          setAmount('');
+          setDescription('');
+          setCategoryId('');
+          setCostCenterId('');
+
+          const defaultFund = funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
+          setFundId(defaultFund?.id || ''); // Default to General/Unrestricted
+
+          setAccountId(accounts.length > 0 ? accounts[0].id : '');
         }
-        
+
         setToAccountId('');
         setMemberId('');
         setAttachments([]);
@@ -214,18 +220,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 relative">
-        
+
         {showDuplicateWarning && (
           <div className="absolute inset-0 z-20 bg-white/95 dark:bg-slate-800/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-             <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-500 mb-4"><AlertTriangle size={32} /></div>
-             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Possível Duplicidade</h3>
-             <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">Já existe um lançamento com o mesmo <strong>Valor</strong> e <strong>Tipo</strong> em uma data próxima.<br/>Deseja salvar mesmo assim?</p>
-             <div className="flex gap-3 w-full"><button onClick={() => setShowDuplicateWarning(false)} className="flex-1 py-3 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg font-medium">Revisar</button><button onClick={proceedSave} className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold">Salvar</button></div>
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center text-amber-600 dark:text-amber-500 mb-4"><AlertTriangle size={32} /></div>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Possível Duplicidade</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">Já existe um lançamento com o mesmo <strong>Valor</strong> e <strong>Tipo</strong> em uma data próxima.<br />Deseja salvar mesmo assim?</p>
+            <div className="flex gap-3 w-full"><button onClick={() => setShowDuplicateWarning(false)} className="flex-1 py-3 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg font-medium">Revisar</button><button onClick={proceedSave} className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold">Salvar</button></div>
           </div>
         )}
 
         <div className={`p-4 flex justify-between items-center ${type === TransactionType.INCOME ? 'bg-emerald-600' : type === TransactionType.EXPENSE ? 'bg-rose-600' : 'bg-blue-600'} text-white`}>
-          <h2 className="text-lg font-bold flex items-center gap-2">{isEditing ? <Edit2 size={20}/> : (type === TransactionType.INCOME ? <Plus size={20}/> : type === TransactionType.EXPENSE ? <Minus size={20}/> : <ArrowLeftRight size={20}/>)} {isEditing ? 'Editar Lançamento' : (type === TransactionType.INCOME ? 'Nova Entrada' : type === TransactionType.EXPENSE ? 'Nova Saída' : 'Transferência')}</h2>
+          <h2 className="text-lg font-bold flex items-center gap-2">{isEditing ? <Edit2 size={20} /> : (type === TransactionType.INCOME ? <Plus size={20} /> : type === TransactionType.EXPENSE ? <Minus size={20} /> : <ArrowLeftRight size={20} />)} {isEditing ? 'Editar Lançamento' : (type === TransactionType.INCOME ? 'Nova Entrada' : type === TransactionType.EXPENSE ? 'Nova Saída' : 'Transferência')}</h2>
           <button onClick={onClose} className="hover:bg-white/20 p-1 rounded-full"><X size={20} /></button>
         </div>
 
@@ -241,59 +247,59 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Valor (R$) *</label>
-              <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full rounded-lg border ${errors.amount ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 p-2 text-lg font-bold text-gray-900 dark:text-white outline-none`} placeholder="0,00"/>
+              <input type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full rounded-lg border ${errors.amount ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 p-2 text-lg font-bold text-gray-900 dark:text-white outline-none`} placeholder="0,00" />
               <ErrorMessage message={errors.amount} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Data *</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none"/>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none" />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição *</label>
-            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={`w-full rounded-lg border ${errors.description ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none`} placeholder={type === TransactionType.TRANSFER ? "Motivo da transferência" : "Descrição do lançamento"}/>
+            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={`w-full rounded-lg border ${errors.description ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none`} placeholder={type === TransactionType.TRANSFER ? "Motivo da transferência" : "Descrição do lançamento"} />
             <ErrorMessage message={errors.description} />
           </div>
 
           {/* New Fund Selector - Mandatory */}
           <div className="bg-purple-50 dark:bg-purple-900/10 p-3 rounded-lg border border-purple-100 dark:border-purple-800/50">
-             <label className="block text-xs font-bold text-purple-700 dark:text-purple-300 mb-1 flex items-center gap-1">
-               <Target size={12}/> Fundo / Projeto Destino *
-             </label>
-             <select
-               value={fundId}
-               onChange={(e) => setFundId(e.target.value)}
-               className={`w-full rounded-lg border ${errors.fundId ? 'border-rose-500' : 'border-purple-200 dark:border-purple-700'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500`}
-             >
-               <option value="">Selecione o fundo...</option>
-               {funds.map(f => (
-                 <option key={f.id} value={f.id}>
-                   {f.name} {f.type === 'RESTRICTED' ? '(Restrito)' : ''}
-                 </option>
-               ))}
-             </select>
-             <ErrorMessage message={errors.fundId} />
+            <label className="block text-xs font-bold text-purple-700 dark:text-purple-300 mb-1 flex items-center gap-1">
+              <Target size={12} /> Fundo / Projeto Destino *
+            </label>
+            <select
+              value={fundId}
+              onChange={(e) => setFundId(e.target.value)}
+              className={`w-full rounded-lg border ${errors.fundId ? 'border-rose-500' : 'border-purple-200 dark:border-purple-700'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500`}
+            >
+              <option value="">Selecione o fundo...</option>
+              {funds.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.name} {f.type === 'RESTRICTED' ? '(Restrito)' : ''}
+                </option>
+              ))}
+            </select>
+            <ErrorMessage message={errors.fundId} />
           </div>
 
           {type === TransactionType.TRANSFER ? (
             <div className="grid grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
-               <div>
-                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">De (Origem) *</label>
-                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none" disabled={isEditing}>
-                    <option value="">Selecione...</option>
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                  <ErrorMessage message={errors.accountId} />
-               </div>
-               <div>
-                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">Para (Destino) *</label>
-                  <select value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none" disabled={isEditing}>
-                    <option value="">Selecione...</option>
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                  <ErrorMessage message={errors.toAccountId} />
-               </div>
+              <div>
+                <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">De (Origem) *</label>
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none" disabled={isEditing}>
+                  <option value="">Selecione...</option>
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                <ErrorMessage message={errors.accountId} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">Para (Destino) *</label>
+                <select value={toAccountId} onChange={(e) => setToAccountId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none" disabled={isEditing}>
+                  <option value="">Selecione...</option>
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                <ErrorMessage message={errors.toAccountId} />
+              </div>
             </div>
           ) : (
             <>
@@ -307,8 +313,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   <ErrorMessage message={errors.categoryId} />
                 </div>
                 <div>
-                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1"><Layers size={12}/> Centro de Custo</label>
-                   <select value={costCenterId} onChange={(e) => setCostCenterId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1"><Layers size={12} /> Centro de Custo</label>
+                  <select value={costCenterId} onChange={(e) => setCostCenterId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none">
                     <option value="">Geral</option>
                     {costCenters.map(cc => <option key={cc.id} value={cc.id}>{cc.name}</option>)}
                   </select>
@@ -339,8 +345,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             <div className="space-y-2">
               {attachments.map((file, idx) => (
                 <div key={idx} className="flex justify-between items-center bg-gray-50 dark:bg-slate-700 p-2 rounded text-sm">
-                   <span className="truncate max-w-[200px] text-gray-700 dark:text-gray-300">{file.name}</span>
-                   <button type="button" onClick={() => removeAttachment(idx)} className="text-red-500"><X size={14}/></button>
+                  <span className="truncate max-w-[200px] text-gray-700 dark:text-gray-300">{file.name}</span>
+                  <button type="button" onClick={() => removeAttachment(idx)} className="text-red-500"><X size={14} /></button>
                 </div>
               ))}
               {attachments.length < 5 && (

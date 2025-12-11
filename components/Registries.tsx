@@ -4,10 +4,13 @@ import { AppData, User, UserRole, TransactionType } from '../types';
 import {
     Database, Layers, Building2, Plus, Edit2, Target,
     FileText, CheckCircle, Landmark, Trash2, Image as ImageIcon,
-    List
+    List, ChevronUp, ChevronDown,
+    ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt,
+    Wallet, Briefcase, Heart, Phone, MapPin, Activity, Zap, Upload
 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import ChartOfAccounts from './ChartOfAccounts';
+import { ICON_MAP } from './ui/IconMap';
 
 // Reusing types locally for this component
 type RegistryTab = 'CATEGORY' | 'ACCOUNT' | 'COST_CENTER' | 'FUND' | 'CHURCH' | 'CHART_OF_ACCOUNTS';
@@ -37,6 +40,7 @@ export default function Registries() {
 
     // Church Specific States
     const [churchType, setChurchType] = useState<'HEADQUARTERS' | 'BRANCH'>('BRANCH');
+    const [fundType, setFundType] = useState<'UNRESTRICTED' | 'RESTRICTED'>('RESTRICTED');
     const [churchCnpj, setChurchCnpj] = useState('');
     const [churchPhone, setChurchPhone] = useState('');
     const [churchEmail, setChurchEmail] = useState('');
@@ -44,6 +48,7 @@ export default function Registries() {
     const [churchCity, setChurchCity] = useState('');
     const [churchState, setChurchState] = useState('');
     const [churchLogo, setChurchLogo] = useState('');
+    const [entityIcon, setEntityIcon] = useState('');
     const logoInputRef = useRef<HTMLInputElement>(null);
 
     const currentChurchId = currentUser?.churchId || data.churches[0]?.id;
@@ -63,9 +68,9 @@ export default function Registries() {
     const getEntities = () => {
         switch (activeTab) {
             case 'CATEGORY': return data.categories.filter(c => c.churchId === currentChurchId);
-            case 'ACCOUNT': return data.accounts.filter(a => a.churchId === currentChurchId);
+            case 'ACCOUNT': return data.accounts.filter(a => a.churchId === currentChurchId).sort((a: any, b: any) => (a.order ?? 999) - (b.order ?? 999));
             case 'COST_CENTER': return data.costCenters.filter(c => c.churchId === currentChurchId);
-            case 'FUND': return data.funds.filter(f => f.churchId === currentChurchId);
+            case 'FUND': return data.funds.filter(f => f.churchId === currentChurchId).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
             case 'CHURCH': return data.churches;
             default: return [];
         }
@@ -92,7 +97,10 @@ export default function Registries() {
         setChurchCity('');
         setChurchState('');
         setChurchLogo('');
+        setChurchLogo('');
         setChurchType('BRANCH');
+        setFundType('RESTRICTED');
+        setEntityIcon('');
         setIsEditingEntity(false);
     };
 
@@ -108,7 +116,10 @@ export default function Registries() {
             setEntityInitialBal(item.initialBalance?.toString() || '0');
             setNewAccAccCode(item.accountingCode || '');
         }
-        if (activeTab === 'FUND') setEntityDesc(item.description || '');
+        if (activeTab === 'FUND') {
+            setEntityDesc(item.description || '');
+            setFundType(item.type || 'RESTRICTED');
+        }
 
         if (activeTab === 'CHURCH') {
             setChurchType(item.type);
@@ -121,6 +132,7 @@ export default function Registries() {
             setChurchState(item.state || '');
         }
 
+        setEntityIcon(item.icon || item.image || ''); // Support legacy image prop
         setIsEditingEntity(true);
     };
 
@@ -133,6 +145,53 @@ export default function Registries() {
         if (activeTab === 'CHURCH') await deleteChurch(id);
     };
 
+    const handleMoveFund = async (index: number, direction: 'UP' | 'DOWN') => {
+        const sortedFunds = [...entities]; // Copy current sorted list
+        if (direction === 'UP' && index === 0) return;
+        if (direction === 'DOWN' && index === sortedFunds.length - 1) return;
+
+        const otherIndex = direction === 'UP' ? index - 1 : index + 1;
+
+        // Swap in array
+        const temp = sortedFunds[index];
+        sortedFunds[index] = sortedFunds[otherIndex];
+        sortedFunds[otherIndex] = temp;
+
+        // Update ALL funds with new order derived from index
+        // This ensures the order is always clean and sequential (0, 1, 2...)
+        // We only await the updates that actually changed to save bandwidth, 
+        // but given the small list size, updating all or just the swapped ones is fine.
+        // For 100% robustness, let's update all that have a diff order.
+
+        for (let i = 0; i < sortedFunds.length; i++) {
+            const fund = sortedFunds[i];
+            if (fund.order !== i) {
+                await updateFund({ ...fund, order: i });
+            }
+        }
+    };
+
+    const handleMoveAccount = async (index: number, direction: 'up' | 'down') => {
+        const sortedAccounts = [...getEntities()];
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === sortedAccounts.length - 1) return;
+
+        const otherIndex = direction === 'up' ? index - 1 : index + 1;
+        const temp = sortedAccounts[index];
+        sortedAccounts[index] = sortedAccounts[otherIndex];
+        sortedAccounts[otherIndex] = temp;
+
+        for (let i = 0; i < sortedAccounts.length; i++) {
+            const acc = sortedAccounts[i];
+            if ((acc.order ?? -1) !== i) {
+                await updateAccount({ ...acc, order: i });
+            }
+        }
+    };
+
+
+
+
     const handleSaveEntity = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!entityName.trim()) return;
@@ -141,16 +200,16 @@ export default function Registries() {
             const genId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
 
             if (activeTab === 'CATEGORY') {
-                const cat: any = { id: entityId || genId(), name: entityName, type: entityType, churchId: currentChurchId!, accountingCode: newCatAccCode };
+                const cat: any = { id: entityId || genId(), name: entityName, type: entityType, churchId: currentChurchId!, accountingCode: newCatAccCode, icon: entityIcon };
                 if (entityId) await updateCategory(cat); else await addCategory(cat);
             } else if (activeTab === 'ACCOUNT') {
-                const acc: any = { id: entityId || genId(), name: entityName, initialBalance: parseFloat(entityInitialBal) || 0, churchId: currentChurchId!, accountingCode: newAccAccCode || '1.02' };
+                const acc: any = { id: entityId || genId(), name: entityName, initialBalance: parseFloat(entityInitialBal) || 0, churchId: currentChurchId!, accountingCode: newAccAccCode || '1.02', icon: entityIcon };
                 if (entityId) await updateAccount(acc); else await addAccount(acc);
             } else if (activeTab === 'COST_CENTER') {
                 const cc: any = { id: entityId || genId(), name: entityName, churchId: currentChurchId! };
                 if (entityId) await updateCostCenter(cc); else await addCostCenter(cc);
             } else if (activeTab === 'FUND') {
-                const fund: any = { id: entityId || genId(), name: entityName, description: entityDesc, type: 'RESTRICTED', churchId: currentChurchId! };
+                const fund: any = { id: entityId || genId(), name: entityName, description: entityDesc, type: fundType, churchId: currentChurchId! };
                 if (entityId) await updateFund(fund); else await addFund(fund);
             } else if (activeTab === 'CHURCH') {
                 const churchData: any = {
@@ -264,6 +323,10 @@ export default function Registries() {
                                             <Input label="Nome do Registro *" value={entityName} onChange={e => setEntityName(e.target.value)} autoFocus />
                                         )}
 
+                                        {(activeTab === 'CATEGORY' || activeTab === 'ACCOUNT') && (
+                                            <IconSelector selected={entityIcon} onSelect={setEntityIcon} />
+                                        )}
+
                                         {/* DATA SPECIFIC Fields */}
                                         {activeTab === 'CATEGORY' && (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -316,7 +379,22 @@ export default function Registries() {
                                         )}
 
                                         {activeTab === 'FUND' && (
-                                            <Input label="Descrição / Finalidade" value={entityDesc} onChange={e => setEntityDesc(e.target.value)} placeholder="Ex: Arrecadação para reforma do telhado" />
+                                            <>
+                                                <Input label="Descrição / Finalidade" value={entityDesc} onChange={e => setEntityDesc(e.target.value)} placeholder="Ex: Arrecadação para reforma do telhado" />
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Tipo de Fundo</label>
+                                                    <div className="flex gap-4 p-2 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input type="radio" checked={fundType === 'UNRESTRICTED'} onChange={() => setFundType('UNRESTRICTED')} className="text-blue-600" />
+                                                            <span className="text-sm font-medium">Geral / Livre (Caixa Comum)</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input type="radio" checked={fundType === 'RESTRICTED'} onChange={() => setFundType('RESTRICTED')} className="text-blue-600" />
+                                                            <span className="text-sm font-medium">Restrito (Projeto Específico)</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </>
                                         )}
 
                                         {/* --- FORM FIELDS END --- */}
@@ -342,13 +420,24 @@ export default function Registries() {
                                             <div className="space-y-2">
                                                 {entities.filter((e: any) => e.type === 'INCOME').map((item: any) => (
                                                     <div key={item.id} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-700 border border-gray-100 dark:border-slate-600 rounded-lg shadow-sm hover:shadow-md hover:border-green-200 dark:hover:border-green-800 transition-all">
-                                                        <div>
-                                                            <div className="font-bold text-gray-800 dark:text-white text-sm">{item.name}</div>
-                                                            {item.accountingCode && (
-                                                                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
-                                                                    <List size={10} /> {item.accountingCode}
+                                                        <div className="flex items-center">
+                                                            {(item.icon || item.image) && (
+                                                                <div className="mr-3 w-9 h-9 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 flex items-center justify-center overflow-hidden shrink-0">
+                                                                    {ICON_MAP[item.icon || item.image] ? (
+                                                                        React.createElement(ICON_MAP[item.icon || item.image], { size: 18 })
+                                                                    ) : (
+                                                                        <img src={item.icon || item.image} className="w-full h-full object-cover" />
+                                                                    )}
                                                                 </div>
                                                             )}
+                                                            <div>
+                                                                <div className="font-bold text-gray-800 dark:text-white text-sm">{item.name}</div>
+                                                                {item.accountingCode && (
+                                                                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                                                                        <List size={10} /> {item.accountingCode}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 dark:hover:bg-slate-600"><Edit2 size={14} /></button>
@@ -373,13 +462,24 @@ export default function Registries() {
                                             <div className="space-y-2">
                                                 {entities.filter((e: any) => e.type === 'EXPENSE').map((item: any) => (
                                                     <div key={item.id} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-700 border border-gray-100 dark:border-slate-600 rounded-lg shadow-sm hover:shadow-md hover:border-red-200 dark:hover:border-red-800 transition-all">
-                                                        <div>
-                                                            <div className="font-bold text-gray-800 dark:text-white text-sm">{item.name}</div>
-                                                            {item.accountingCode && (
-                                                                <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
-                                                                    <List size={10} /> {item.accountingCode}
+                                                        <div className="flex items-center">
+                                                            {(item.icon || item.image) && (
+                                                                <div className="mr-3 w-9 h-9 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center justify-center overflow-hidden shrink-0">
+                                                                    {ICON_MAP[item.icon || item.image] ? (
+                                                                        React.createElement(ICON_MAP[item.icon || item.image], { size: 18 })
+                                                                    ) : (
+                                                                        <img src={item.icon || item.image} className="w-full h-full object-cover" />
+                                                                    )}
                                                                 </div>
                                                             )}
+                                                            <div>
+                                                                <div className="font-bold text-gray-800 dark:text-white text-sm">{item.name}</div>
+                                                                {item.accountingCode && (
+                                                                    <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                                                                        <List size={10} /> {item.accountingCode}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 dark:hover:bg-slate-600"><Edit2 size={14} /></button>
@@ -404,17 +504,70 @@ export default function Registries() {
                                                 <p className="text-xs mt-1">Clique em "Novo Registro" para começar.</p>
                                             </div>
                                         ) : (
-                                            entities.map((item: any) => (
+                                            entities.map((item: any, index: number) => (
                                                 <div key={item.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:bg-gray-50 dark:hover:bg-slate-700/30 px-2 rounded-lg transition-colors">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm shrink-0">
-                                                            {activeTab === 'CHURCH' && item.logo ? <img src={item.logo} className="w-full h-full object-cover rounded-full" /> : item.name.substring(0, 2).toUpperCase()}
+                                                        {activeTab === 'FUND' && (
+                                                            <div className="flex flex-col gap-1 mr-2">
+                                                                <button
+                                                                    onClick={() => handleMoveFund(index, 'UP')}
+                                                                    disabled={index === 0}
+                                                                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <ChevronUp size={14} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleMoveFund(index, 'DOWN')}
+                                                                    disabled={index === entities.length - 1}
+                                                                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <ChevronDown size={14} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {activeTab === 'ACCOUNT' && (
+                                                            <div className="flex flex-col gap-1 mr-2">
+                                                                <button
+                                                                    onClick={() => handleMoveAccount(index, 'up')}
+                                                                    disabled={index === 0}
+                                                                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <ChevronUp size={14} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleMoveAccount(index, 'down')}
+                                                                    disabled={index === entities.length - 1}
+                                                                    className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                >
+                                                                    <ChevronDown size={14} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                                                            {activeTab === 'CHURCH' && item.logo ? (
+                                                                <img src={item.logo} className="w-full h-full object-cover" />
+                                                            ) : (item.icon || item.image) ? (
+                                                                ICON_MAP[item.icon || item.image] ? (
+                                                                    React.createElement(ICON_MAP[item.icon || item.image], { size: 20 })
+                                                                ) : (
+                                                                    <img src={item.icon || item.image} className="w-full h-full object-cover" />
+                                                                )
+                                                            ) : (
+                                                                item.name.substring(0, 2).toUpperCase()
+                                                            )}
                                                         </div>
                                                         <div>
                                                             <h4 className="font-bold text-gray-800 dark:text-white">{item.name}</h4>
                                                             <div className="flex flex-wrap gap-2 text-xs text-gray-500 mt-0.5">
                                                                 {activeTab === 'ACCOUNT' && `Saldo Inicial: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.initialBalance)}`}
-                                                                {activeTab === 'FUND' && item.description}
+                                                                {activeTab === 'FUND' && (
+                                                                    <>
+                                                                        <span className={`px-1.5 py-0.5 rounded ${item.type === 'UNRESTRICTED' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                            {item.type === 'UNRESTRICTED' ? 'Geral / Livre' : 'Restrito'}
+                                                                        </span>
+                                                                        {item.description}
+                                                                    </>
+                                                                )}
                                                                 {activeTab === 'CHURCH' && (
                                                                     <span className={`px-1.5 py-0.5 rounded ${item.type === 'HEADQUARTERS' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                                                         {item.type === 'HEADQUARTERS' ? 'Matriz' : 'Filial'}
@@ -475,3 +628,75 @@ const Select = ({ label, children, ...props }: any) => (
         </select>
     </div>
 );
+
+const IconSelector = ({ selected, onSelect }: { selected: string; onSelect: (icon: string) => void }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const icons = [
+        'Wallet', 'Landmark', 'Briefcase', 'Building2', 'PiggyBank', 'CreditCard', // Finance
+        'ShoppingBag', 'Utensils', 'Home', 'Car', 'Lightbulb', 'Wifi', 'Phone', 'Shirt', // Expenses
+        'Gift', 'GraduationCap', 'Plane', 'Music', 'Film', 'Gamepad2', 'Coffee', 'Heart', // Leisure/Misc
+        'Target', 'MapPin', 'Activity', 'Zap', 'Database', 'FileText', 'Layers', 'CheckCircle' // System
+    ];
+
+    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 50 * 1024) { // 50KB limit
+                alert("A imagem deve ter no máximo 50KB para ser usada como ícone. Por favor, escolha uma imagem menor.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => onSelect(reader.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const isCustom = selected && !ICON_MAP[selected];
+
+    return (
+        <div className="mb-4">
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">Ícone (Opcional)</label>
+            <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600 max-h-40 overflow-y-auto custom-scrollbar">
+
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 rounded-lg transition-all border border-dashed border-gray-300 dark:border-slate-500 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
+                    title="Upload Personalizado"
+                >
+                    <Upload size={20} />
+                </button>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleUpload} />
+
+                {isCustom && (
+                    <button
+                        type="button"
+                        className="p-1 rounded-lg bg-blue-600 text-white shadow-md scale-110 overflow-hidden w-9 h-9 flex items-center justify-center"
+                        title="Ícone Personalizado"
+                    >
+                        <img src={selected} className="w-full h-full object-cover rounded" />
+                    </button>
+                )}
+
+                {icons.map(iconName => {
+                    const Icon = ICON_MAP[iconName];
+                    if (!Icon) return null;
+                    return (
+                        <button
+                            key={iconName}
+                            type="button"
+                            onClick={() => onSelect(iconName)}
+                            className={`p-2 rounded-lg transition-all ${selected === iconName
+                                ? 'bg-blue-600 text-white shadow-md scale-110'
+                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:scale-105'
+                                }`}
+                            title={iconName}
+                        >
+                            <Icon size={20} />
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};

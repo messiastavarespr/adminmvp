@@ -1,16 +1,16 @@
 
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  CalendarClock, 
-  BarChart3, 
-  Settings, 
-  Plus, 
-  Minus, 
-  Moon, 
-  Sun, 
-  Menu, 
+import {
+  LayoutDashboard,
+  BookOpen,
+  CalendarClock,
+  BarChart3,
+  Settings,
+  Plus,
+  Minus,
+  Moon,
+  Sun,
+  Menu,
   X,
   FileText,
   Trash2,
@@ -88,19 +88,21 @@ import {
   Copy,
   CheckCircle2,
   ShieldCheck,
-  Zap
+  Zap,
+  ChevronUp,
+  ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt
 } from 'lucide-react';
 
 export const ChurchCross = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2.5" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
   >
     <path d="M12 2v20" />
@@ -109,16 +111,16 @@ export const ChurchCross = ({ size = 24, className = "" }: { size?: number, clas
 );
 
 export {
-  LayoutDashboard, 
-  BookOpen, 
-  CalendarClock, 
-  BarChart3, 
-  Settings, 
-  Plus, 
-  Minus, 
-  Moon, 
-  Sun, 
-  Menu, 
+  LayoutDashboard,
+  BookOpen,
+  CalendarClock,
+  BarChart3,
+  Settings,
+  Plus,
+  Minus,
+  Moon,
+  Sun,
+  Menu,
   X,
   FileText,
   Trash2,
@@ -196,5 +198,7 @@ export {
   Copy,
   CheckCircle2,
   ShieldCheck,
-  Zap
+  Zap,
+  ChevronUp,
+  ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt
 };

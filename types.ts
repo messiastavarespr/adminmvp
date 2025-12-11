@@ -51,6 +51,7 @@ export interface Fund {
   type: 'UNRESTRICTED' | 'RESTRICTED'; // Unrestricted (General) vs Restricted (Specific Purpose)
   churchId: string;
   isSystemDefault?: boolean;
+  order?: number; // For manual ordering
 }
 
 // New Entity: Accounting (Plano de Contas)
@@ -113,6 +114,7 @@ export interface Category {
   type: TransactionType;
   churchId: string;
   image?: string;
+  icon?: string;
   accountingCode?: string; // Link to AccountingAccount.code
 }
 
@@ -122,6 +124,8 @@ export interface Account {
   initialBalance: number;
   churchId: string;
   accountingCode?: string; // Link to AccountingAccount.code (usually an ASSET account)
+  icon?: string;
+  order?: number;
 }
 
 export interface Transaction {
