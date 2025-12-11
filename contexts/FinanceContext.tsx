@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount } from '../types';
+import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset } from '../types';
 import { storageService } from '../services/storageService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -76,6 +76,10 @@ interface FinanceContextProps {
   updateAccountingAccount: (a: AccountingAccount) => void;
   deleteAccountingAccount: (id: string) => void;
 
+  addAsset: (a: Asset) => void;
+  updateAsset: (a: Asset) => void;
+  deleteAsset: (id: string) => void;
+
   logAction: (action: string, level: 'INFO' | 'WARNING' | 'ERROR' | 'SYSTEM', details: string) => void;
   toggleTheme: () => void;
 }
@@ -97,6 +101,7 @@ const initialData: AppData = {
   budgets: [],
   auditLogs: [],
   notifications: [],
+  assets: [],
   theme: 'light',
 };
 
@@ -262,6 +267,10 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   const updateAccountingAccount = async (a: AccountingAccount) => { await supabaseService.updateAccountingAccount(a); refreshData(); };
   const deleteAccountingAccount = async (id: string) => { await supabaseService.deleteAccountingAccount(id); refreshData(); };
 
+  const addAsset = async (a: Asset) => { await supabaseService.addAsset(a); refreshData(); };
+  const updateAsset = async (a: Asset) => { await supabaseService.updateAsset(a); refreshData(); };
+  const deleteAsset = async (id: string) => { await supabaseService.deleteAsset(id); refreshData(); };
+
   return (
     <FinanceContext.Provider value={{
       data,
@@ -313,6 +322,9 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       addAccountingAccount,
       updateAccountingAccount,
       deleteAccountingAccount,
+      addAsset,
+      updateAsset,
+      deleteAsset,
       logAction: (action: string, level: 'INFO' | 'WARNING' | 'ERROR' | 'SYSTEM', details: string) => {
         if (currentUser) {
           supabaseService.logAction(currentUser, action, level, details);

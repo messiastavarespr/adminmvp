@@ -19,7 +19,7 @@ export enum UserRole {
   MEMBER = 'MEMBER'
 }
 
-export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries' | 'tithes';
+export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries' | 'tithes' | 'assets';
 
 export interface Church {
   id: string;
@@ -111,6 +111,20 @@ export interface Member {
   rg?: string;
   document?: string;
   notes?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'OBSERVATION';
+  tags?: string[];
+}
+
+export interface Asset {
+  id: string;
+  name: string;
+  category: 'FURNITURE' | 'ELECTRONICS' | 'INSTRUMENTS' | 'VEHICLES' | 'OTHER';
+  acquisitionDate?: string;
+  value?: number;
+  location?: string;
+  status: 'ACTIVE' | 'MAINTENANCE' | 'DISPOSED';
+  notes?: string;
+  churchId: string;
 }
 
 export interface Category {
@@ -207,6 +221,7 @@ export interface AppData {
   users: User[];
   members: Member[];
   churches: Church[];
+  assets: Asset[];
   budgets: Budget[];
   auditLogs: AuditLog[];
   notifications: Notification[];

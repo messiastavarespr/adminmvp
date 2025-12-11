@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   BookOpen,
@@ -8,7 +8,6 @@ import {
   Settings as SettingsIcon,
   X,
   Building2,
-  UserCheck,
   LogOut,
   Moon,
   Sun,
@@ -16,13 +15,16 @@ import {
   Link,
   ChurchCross,
   FileJson,
-  List,
   Database,
-  DollarSign
+  DollarSign,
+  UserCheck,
+  ChevronDown,
+  ChevronRight,
+  Package,
+  Archive
 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import { AppView } from '../types';
-// import { storageService } from '../services/storageService';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -53,32 +55,72 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ id, icon: Icon, label, isActi
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { data, currentUser, logout, refreshData, activeTab, setActiveTab, toggleTheme } = useFinance();
+  const { data, currentUser, logout, activeTab, setActiveTab, toggleTheme } = useFinance();
 
-  // const toggleTheme moved to Context
+  // State to track expanded sections
+  const [expandedSections, setExpandedSections] = useState<string[]>(['Principal', 'Financeiro']);
 
   const handleNavigation = (id: AppView) => {
     setActiveTab(id);
-    onClose(); // Close sidebar on mobile when item is clicked
+    onClose();
   };
 
   const currentChurch = data.churches.find(c => c.id === currentUser?.churchId) || data.churches[0];
   const sidebarLogo = currentChurch?.logo;
 
-  const menuItems: { id: AppView; label: string; icon: any }[] = [
-    { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
-    { id: 'ledger', label: 'Livro Caixa', icon: BookOpen },
-    { id: 'registries', label: 'Cadastros', icon: Database },
-    { id: 'tithes', label: 'Dízimos', icon: DollarSign },
-    { id: 'reconciliation', label: 'Conciliação', icon: Link },
-
-    { id: 'scheduled', label: 'Agendamentos', icon: CalendarClock },
-    { id: 'payables', label: 'Contas a Pagar', icon: ClipboardList },
-    { id: 'reports', label: 'Relatórios', icon: BarChart3 },
-    { id: 'members', label: 'Pessoas', icon: UserCheck },
-    { id: 'tools', label: 'Ferramentas', icon: FileJson },
-    { id: 'settings', label: 'Configurações', icon: SettingsIcon },
+  const menuSections: { title: string; icon?: React.ElementType; items: { id: AppView; label: string; icon: React.ElementType }[] }[] = [
+    {
+      title: 'Principal',
+      items: [
+        { id: 'dashboard' as AppView, label: 'Visão Geral', icon: LayoutDashboard },
+      ]
+    },
+    {
+      title: 'Financeiro',
+      items: [
+        { id: 'ledger' as AppView, label: 'Livro Caixa', icon: BookOpen },
+        { id: 'tithes' as AppView, label: 'Dízimos', icon: DollarSign },
+        { id: 'payables' as AppView, label: 'Contas a Pagar', icon: ClipboardList },
+        { id: 'scheduled' as AppView, label: 'Agendamentos', icon: CalendarClock },
+        { id: 'reconciliation' as AppView, label: 'Conciliação', icon: Link },
+      ]
+    },
+    {
+      title: 'Cadastros',
+      items: [
+        { id: 'members' as AppView, label: 'Pessoas', icon: UserCheck },
+        { id: 'registries' as AppView, label: 'Categorias & Contas', icon: Database },
+      ]
+    },
+    {
+      title: 'Gestão',
+      items: [
+        { id: 'reports' as AppView, label: 'Relatórios', icon: BarChart3 },
+        { id: 'assets' as AppView, label: 'Patrimônio', icon: Archive },
+        { id: 'tools' as AppView, label: 'Ferramentas', icon: FileJson },
+        { id: 'settings' as AppView, label: 'Configurações', icon: SettingsIcon },
+      ]
+    }
   ];
+
+  // Auto-expand the section containing the active tab on mount or tab change
+  useEffect(() => {
+    const activeSection = menuSections.find(section =>
+      section.items.some(item => item.id === activeTab)
+    );
+
+    if (activeSection && !expandedSections.includes(activeSection.title)) {
+      setExpandedSections(prev => [...prev, activeSection.title]);
+    }
+  }, [activeTab]);
+
+  const toggleSection = (title: string) => {
+    setExpandedSections(prev =>
+      prev.includes(title)
+        ? prev.filter(t => t !== title)
+        : [...prev, title]
+    );
+  };
 
   return (
     <aside className={`
@@ -107,17 +149,49 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Menu Items */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-          {menuItems.map((item) => (
-            <SidebarItem
-              key={item.id}
-              id={item.id}
-              label={item.label}
-              icon={item.icon}
-              isActive={activeTab === item.id}
-              onClick={handleNavigation}
-            />
-          ))}
+        <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto custom-scrollbar">
+          {menuSections.map((section, idx) => {
+            const isExpanded = expandedSections.includes(section.title);
+            const hasActiveChild = section.items.some(item => item.id === activeTab);
+
+            return (
+              <div key={idx}>
+                {section.title !== 'Principal' ? (
+                  <button
+                    onClick={() => toggleSection(section.title)}
+                    className={`w-full flex items-center justify-between px-4 py-2 mb-1 text-xs font-semibold uppercase tracking-wider transition-colors group ${hasActiveChild ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {section.icon && <section.icon size={14} className={hasActiveChild ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"} />}
+                      {section.title}
+                    </div>
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                ) : (
+                  <div className="px-4 py-2 mb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                    {section.icon && <section.icon size={14} />}
+                    {section.title}
+                  </div>
+                )}
+
+                {/* Always show Principal, toggle others */}
+                <div className={`space-y-1 transition-all overflow-hidden ${section.title === 'Principal' || isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}>
+                  {section.items.map((item) => (
+                    <SidebarItem
+                      key={item.id}
+                      id={item.id}
+                      label={item.label}
+                      icon={item.icon}
+                      isActive={activeTab === item.id}
+                      onClick={handleNavigation}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Footer User Profile & Theme */}

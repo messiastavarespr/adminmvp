@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { AppData, Transaction, ScheduledTransaction, Category, CostCenter, Account, TransactionType, RecurrenceType, User, UserRole, Member, Church, AuditLog, Budget, Fund, AccountingAccount } from '../types';
+import { AppData, Transaction, ScheduledTransaction, Category, CostCenter, Account, TransactionType, RecurrenceType, User, UserRole, Member, Church, AuditLog, Budget, Fund, AccountingAccount, Asset } from '../types';
 
 // Helper to map DB snake_case to CamelCase if needed, but for now we assume 1:1 or manual mapping
 // Our SQL uses snake_case keys (e.g. church_id), Types use camelCase (churchId).
@@ -49,7 +49,8 @@ export const supabaseService = {
             { data: budgets },
             { data: auditLogs },
             { data: users },
-            { data: notifications }
+            { data: notifications },
+            { data: assets }
         ] = await Promise.all([
             supabase.from('transactions').select('*'),
             supabase.from('categories').select('*'),
@@ -63,7 +64,8 @@ export const supabaseService = {
             supabase.from('budgets').select('*'),
             supabase.from('audit_logs').select('*').order('date', { ascending: false }).limit(500),
             supabase.from('users').select('*'),
-            supabase.from('notifications').select('*')
+            supabase.from('notifications').select('*'),
+            supabase.from('assets').select('*')
         ]);
 
         return {
@@ -80,6 +82,7 @@ export const supabaseService = {
             auditLogs: mapToCamel(auditLogs || []),
             users: mapToCamel(users || []),
             notifications: mapToCamel(notifications || []),
+            assets: mapToCamel(assets || []),
             theme: 'light', // Local preference only
         };
     },
@@ -408,6 +411,22 @@ export const supabaseService = {
     },
     deleteAccountingAccount: async (id: string) => {
         const { error } = await supabase.from('accounting_accounts').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Assets ---
+    addAsset: async (a: Asset) => {
+        const { id, ...payload } = mapToSnake(a);
+        const { error } = await supabase.from('assets').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+    updateAsset: async (a: Asset) => {
+        const { id, ...payload } = mapToSnake(a);
+        const { error } = await supabase.from('assets').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+    deleteAsset: async (id: string) => {
+        const { error } = await supabase.from('assets').delete().eq('id', id);
         if (error) throw error;
     },
 };

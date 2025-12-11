@@ -14,12 +14,10 @@ import TransactionModal from './components/TransactionModal';
 import ScheduleModal from './components/ScheduleModal';
 import Toast from './components/ui/Toast';
 import AccountsPayable from './components/AccountsPayable';
-import Sidebar from './components/Sidebar';
-import { Tools } from './components/Tools'; // Import centralized Tools component
-import { TithesEntry } from './components/TithesEntry'; // Import Tithes Module
+import Assets from './components/Assets';
+import Sidebar from './components/Sidebar'; // Import new component
 import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
-import ChartOfAccounts from './components/ChartOfAccounts'; // Import new Component
-import Registries from './components/Registries'; // Import new Component
+import { Tools } from './components/Tools'; // Import centralized Tools component
 import { storageService } from './services/storageService';
 import { notificationService } from './services/notificationService'; // Import notification service
 import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
@@ -285,8 +283,6 @@ function AppContent() {
                 currentChurch={currentChurch}
               />
             )}
-            {activeTab === 'registries' && <Registries />}
-            {activeTab === 'tithes' && <TithesEntry />}
             {activeTab === 'reconciliation' && <Reconciliation onManualAdd={handleReconciliationManual} />}
             {activeTab === 'scheduled' && (
               <ScheduledTransactions
@@ -308,6 +304,7 @@ function AppContent() {
               <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} />
             )}
             {activeTab === 'tools' && <Tools />}
+            {activeTab === 'assets' && <Assets />}
             {activeTab === 'settings' && <Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />}
           </div>
         </div>
