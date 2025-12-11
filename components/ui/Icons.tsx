@@ -8,6 +8,7 @@ import {
   Settings,
   Plus,
   Minus,
+  DollarSign,
   Moon,
   Sun,
   Menu,
@@ -203,5 +204,5 @@ export {
   Zap,
   ChevronUp,
   ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt,
-  Wrench, Loader2
+  Wrench, Loader2, DollarSign
 };

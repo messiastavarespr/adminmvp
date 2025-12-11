@@ -19,7 +19,7 @@ export enum UserRole {
   MEMBER = 'MEMBER'
 }
 
-export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries';
+export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries' | 'tithes';
 
 export interface Church {
   id: string;

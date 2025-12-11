@@ -14,11 +14,12 @@ import TransactionModal from './components/TransactionModal';
 import ScheduleModal from './components/ScheduleModal';
 import Toast from './components/ui/Toast';
 import AccountsPayable from './components/AccountsPayable';
-import Sidebar from './components/Sidebar'; // Import new component
+import Sidebar from './components/Sidebar';
+import { Tools } from './components/Tools'; // Import centralized Tools component
+import { TithesEntry } from './components/TithesEntry'; // Import Tithes Module
 import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
 import ChartOfAccounts from './components/ChartOfAccounts'; // Import new Component
 import Registries from './components/Registries'; // Import new Component
-import { Tools } from './components/Tools'; // Import centralized Tools component
 import { storageService } from './services/storageService';
 import { notificationService } from './services/notificationService'; // Import notification service
 import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
@@ -285,6 +286,7 @@ function AppContent() {
               />
             )}
             {activeTab === 'registries' && <Registries />}
+            {activeTab === 'tithes' && <TithesEntry />}
             {activeTab === 'reconciliation' && <Reconciliation onManualAdd={handleReconciliationManual} />}
             {activeTab === 'scheduled' && (
               <ScheduledTransactions

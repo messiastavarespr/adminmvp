@@ -17,7 +17,8 @@ import {
   ChurchCross,
   FileJson,
   List,
-  Database
+  Database,
+  DollarSign
 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import { AppView } from '../types';
@@ -68,6 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
     { id: 'ledger', label: 'Livro Caixa', icon: BookOpen },
     { id: 'registries', label: 'Cadastros', icon: Database },
+    { id: 'tithes', label: 'Dízimos', icon: DollarSign },
     { id: 'reconciliation', label: 'Conciliação', icon: Link },
 
     { id: 'scheduled', label: 'Agendamentos', icon: CalendarClock },
