@@ -429,4 +429,43 @@ export const supabaseService = {
         const { error } = await supabase.from('assets').delete().eq('id', id);
         if (error) throw error;
     },
+
+    // --- System Reset ---
+    resetData: async (options: { transactions: boolean; members: boolean; budgets: boolean; settings: boolean; audit: boolean }) => {
+        // Order matters for FK constraints. 
+        // 1. Transactions (depend on almost everything)
+        if (options.transactions || options.settings) { // Settings reset implies transactions reset
+            await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+            await supabase.from('scheduled_transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        }
+
+        // 2. Budgets (depend on Categories)
+        if (options.budgets || options.settings) {
+            await supabase.from('budgets').delete().neq('id', 0); // Delete all
+        }
+
+        // 3. Members
+        if (options.members) {
+            await supabase.from('members').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        }
+
+        // 4. Settings (Categories, Accounts, etc.) - These are independent of each other mostly, but transactions depend on them.
+        if (options.settings) {
+            // Delete in safe order or parallel if no inter-dependencies
+            await Promise.all([
+                supabase.from('categories').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('accounts').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('cost_centers').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('funds').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('accounting_accounts').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('assets').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('churches').delete().neq('id', 'ch_hq'), // Keep HQ? Maybe specific policy needed.
+            ]);
+        }
+
+        // 5. Audit Log
+        if (options.audit) {
+            await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        }
+    }
 };

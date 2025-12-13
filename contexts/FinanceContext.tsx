@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset } from '../types';
+import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset, UserRole } from '../types';
 import { storageService } from '../services/storageService';
 import { supabaseService } from '../services/supabaseService';
 
@@ -81,6 +81,7 @@ interface FinanceContextProps {
   deleteAsset: (id: string) => void;
 
   logAction: (action: string, level: 'INFO' | 'WARNING' | 'ERROR' | 'SYSTEM', details: string) => void;
+  resetSystem: (options: { transactions: boolean; members: boolean; budgets: boolean; settings: boolean; audit: boolean }) => Promise<void>;
   toggleTheme: () => void;
 }
 
@@ -325,6 +326,13 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       addAsset,
       updateAsset,
       deleteAsset,
+      resetSystem: async (options) => {
+        if (currentUser?.role !== UserRole.ADMIN) throw new Error('Apenas administradores podem resetar o sistema.');
+        await supabaseService.resetData(options);
+        // Log the reset
+        supabaseService.logAction(currentUser, 'RESET', 'SYSTEM', `Reset parcial realizado: ${JSON.stringify(options)}`);
+        refreshData();
+      },
       logAction: (action: string, level: 'INFO' | 'WARNING' | 'ERROR' | 'SYSTEM', details: string) => {
         if (currentUser) {
           supabaseService.logAction(currentUser, action, level, details);
