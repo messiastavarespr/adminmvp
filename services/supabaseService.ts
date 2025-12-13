@@ -6,16 +6,16 @@ import { AppData, Transaction, ScheduledTransaction, Category, CostCenter, Accou
 // Our SQL uses snake_case keys (e.g. church_id), Types use camelCase (churchId).
 // We need to map them.
 
-const mapToCamel = (obj: any): any => {
-    if (Array.isArray(obj)) return obj.map(mapToCamel);
+const mapToCamel = <T>(obj: any): T => {
+    if (Array.isArray(obj)) return obj.map(mapToCamel) as any;
     if (obj !== null && typeof obj === 'object') {
         return Object.keys(obj).reduce((acc, key) => {
             const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
             acc[camelKey] = mapToCamel(obj[key]);
             return acc;
-        }, {} as any);
+        }, {} as any) as T;
     }
-    return obj;
+    return obj as T;
 };
 
 const mapToSnake = (obj: any): any => {
@@ -34,10 +34,16 @@ const defaultChurchId = 'ch_hq'; // Fallback
 
 export const supabaseService = {
     // --- Core Fetch ---
-    getData: async (): Promise<AppData> => {
-        // Parallel fetch for MVP parity
+    getData: async (startDate?: string): Promise<AppData> => {
+        // Default: Last 12 months if not specified
+        const defaultDate = new Date();
+        defaultDate.setFullYear(defaultDate.getFullYear() - 1);
+        const filterDate = startDate || defaultDate.toISOString().split('T')[0];
+
+        // Parallel fetch
         const [
-            { data: transactions },
+            { data: recentTransactions },
+            { data: legacyTransactions }, // Fetch light version for math
             { data: categories },
             { data: accounts },
             { data: members },
@@ -52,7 +58,11 @@ export const supabaseService = {
             { data: notifications },
             { data: assets }
         ] = await Promise.all([
-            supabase.from('transactions').select('*'),
+            // 1. Recent Transactions (Full)
+            supabase.from('transactions').select('*').gte('date', filterDate),
+            // 2. Old Transactions (Light - Just for Balance)
+            supabase.from('transactions').select('id, amount, type, account_id, fund_id, transfer_direction').lt('date', filterDate),
+
             supabase.from('categories').select('*'),
             supabase.from('accounts').select('*'),
             supabase.from('members').select('*'),
@@ -62,29 +72,77 @@ export const supabaseService = {
             supabase.from('cost_centers').select('*'),
             supabase.from('accounting_accounts').select('*'),
             supabase.from('budgets').select('*'),
-            supabase.from('audit_logs').select('*').order('date', { ascending: false }).limit(500),
+            // Limit Audit Logs
+            supabase.from('audit_logs').select('*').order('date', { ascending: false }).limit(50),
             supabase.from('users').select('*'),
             supabase.from('notifications').select('*'),
             supabase.from('assets').select('*')
         ]);
 
+        // --- PROCESS LEGACY BALANCES ---
+        // We calculate the net result of all excluded transactions and add to the account's initialBalance
+        const accountOffsets = new Map<string, number>();
+
+        // Type definition for raw DB transaction subset
+        interface RawLegacyTransaction {
+            id: string;
+            amount: number;
+            type: string;
+            account_id: string;
+            fund_id: string;
+            transfer_direction?: string;
+        }
+
+        (legacyTransactions as RawLegacyTransaction[] || []).forEach((t) => {
+            const amount = Number(t.amount);
+            const type = t.type;
+            const accId = t.account_id;
+            const direction = t.transfer_direction;
+
+            if (type === 'INCOME') {
+                accountOffsets.set(accId, (accountOffsets.get(accId) || 0) + amount);
+            } else if (type === 'EXPENSE') {
+                accountOffsets.set(accId, (accountOffsets.get(accId) || 0) - amount);
+            } else if (type === 'TRANSFER') {
+                if (direction === 'IN') accountOffsets.set(accId, (accountOffsets.get(accId) || 0) + amount);
+                if (direction === 'OUT') accountOffsets.set(accId, (accountOffsets.get(accId) || 0) - amount);
+            }
+        });
+
+        // Map Accounts and adjust Initial Balance
+        const mappedAccounts = mapToCamel<Account[]>(accounts || []).map((acc) => ({
+            ...acc,
+            initialBalance: acc.initialBalance + (accountOffsets.get(acc.id) || 0)
+        }));
+
         return {
-            transactions: mapToCamel(transactions || []),
-            categories: mapToCamel(categories || []),
-            accounts: mapToCamel(accounts || []),
-            members: mapToCamel(members || []),
-            churches: mapToCamel(churches || []),
-            scheduled: mapToCamel(scheduled || []),
-            funds: mapToCamel(funds || []),
-            costCenters: mapToCamel(costCenters || []),
-            accountingAccounts: mapToCamel(accountingAccounts || []),
-            budgets: mapToCamel(budgets || []),
-            auditLogs: mapToCamel(auditLogs || []),
-            users: mapToCamel(users || []),
-            notifications: mapToCamel(notifications || []),
-            assets: mapToCamel(assets || []),
+            transactions: mapToCamel<Transaction[]>(recentTransactions || []),
+            categories: mapToCamel<Category[]>(categories || []),
+            accounts: mappedAccounts,
+            members: mapToCamel<Member[]>(members || []),
+            churches: mapToCamel<Church[]>(churches || []),
+            scheduled: mapToCamel<ScheduledTransaction[]>(scheduled || []),
+            funds: mapToCamel<Fund[]>(funds || []),
+            costCenters: mapToCamel<CostCenter[]>(costCenters || []),
+            accountingAccounts: mapToCamel<AccountingAccount[]>(accountingAccounts || []),
+            budgets: mapToCamel<Budget[]>(budgets || []),
+            auditLogs: mapToCamel<AuditLog[]>(auditLogs || []),
+            users: mapToCamel<User[]>(users || []),
+            notifications: mapToCamel<any[]>(notifications || []), // Notifications type might be loose or defined
+            assets: mapToCamel<Asset[]>(assets || []),
             theme: 'light', // Local preference only
         };
+    },
+
+    getMoreAuditLogs: async (page: number, pageSize: number = 50): Promise<AuditLog[]> => {
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select('*')
+            .order('date', { ascending: false })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+        return mapToCamel(data || []) as AuditLog[];
     },
 
     // --- Transactions ---

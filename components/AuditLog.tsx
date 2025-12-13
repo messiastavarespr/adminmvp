@@ -6,12 +6,22 @@ import SearchBox from './ui/SearchBox';
 
 interface AuditLogProps {
   logs: AuditLog[];
+  onLoadMore?: () => void;
 }
 
-const AuditLogViewer: React.FC<AuditLogProps> = ({ logs }) => {
+const AuditLogViewer: React.FC<AuditLogProps> = ({ logs, onLoadMore }) => {
   const [search, setSearch] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const filteredLogs = logs.filter(log => 
+  const handleLoadMore = async () => {
+    if (onLoadMore) {
+      setLoading(true);
+      await onLoadMore();
+      setLoading(false);
+    }
+  };
+
+  const filteredLogs = logs.filter(log =>
     log.userName.toLowerCase().includes(search.toLowerCase()) ||
     log.details.toLowerCase().includes(search.toLowerCase()) ||
     log.action.toLowerCase().includes(search.toLowerCase())
@@ -52,11 +62,10 @@ const AuditLogViewer: React.FC<AuditLogProps> = ({ logs }) => {
                       {log.userName}
                     </td>
                     <td className="px-6 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        log.action === 'CREATE' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                        log.action === 'DELETE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'CREATE' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                          log.action === 'DELETE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                        }`}>
                         {log.action}
                       </span>
                     </td>
@@ -69,6 +78,17 @@ const AuditLogViewer: React.FC<AuditLogProps> = ({ logs }) => {
             </tbody>
           </table>
         </div>
+        {onLoadMore && (
+          <div className="p-4 border-t border-gray-100 dark:border-slate-700 flex justify-center bg-gray-50 dark:bg-slate-900/50">
+            <button
+              onClick={handleLoadMore}
+              disabled={loading}
+              className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+            >
+              {loading ? 'Carregando...' : 'Carregar Mais Histórico'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

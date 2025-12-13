@@ -83,6 +83,7 @@ interface FinanceContextProps {
   logAction: (action: string, level: 'INFO' | 'WARNING' | 'ERROR' | 'SYSTEM', details: string) => void;
   resetSystem: (options: { transactions: boolean; members: boolean; budgets: boolean; settings: boolean; audit: boolean }) => Promise<void>;
   toggleTheme: () => void;
+  loadMoreAuditLogs: () => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextProps | undefined>(undefined);
@@ -342,6 +343,14 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
         const newTheme = data.theme === 'light' ? 'dark' : 'light';
         localStorage.setItem('mvp_theme', newTheme);
         setData(prev => ({ ...prev, theme: newTheme }));
+      },
+      loadMoreAuditLogs: async () => {
+        const currentCount = data.auditLogs.length;
+        const page = Math.floor(currentCount / 50); // Assumption: pageSize=50
+        const newLogs = await supabaseService.getMoreAuditLogs(page);
+        if (newLogs.length > 0) {
+          setData(prev => ({ ...prev, auditLogs: [...prev.auditLogs, ...newLogs] }));
+        }
       }
     }}>
       {children}
