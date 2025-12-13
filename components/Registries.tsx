@@ -6,14 +6,14 @@ import {
     FileText, CheckCircle, Landmark, Trash2, Image as ImageIcon,
     List, ChevronUp, ChevronDown,
     ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt,
-    Wallet, Briefcase, Heart, Phone, MapPin, Activity, Zap, Upload
+    Wallet, Briefcase, Heart, Phone, MapPin, Activity, Zap, Upload, Archive
 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import ChartOfAccounts from './ChartOfAccounts';
 import { ICON_MAP } from './ui/IconMap';
 
 // Reusing types locally for this component
-type RegistryTab = 'CATEGORY' | 'ACCOUNT' | 'COST_CENTER' | 'FUND' | 'CHURCH' | 'CHART_OF_ACCOUNTS';
+type RegistryTab = 'CATEGORY' | 'ACCOUNT' | 'COST_CENTER' | 'FUND' | 'CHURCH' | 'CHART_OF_ACCOUNTS' | 'ASSET_CATEGORY';
 
 export default function Registries() {
     const {
@@ -23,7 +23,8 @@ export default function Registries() {
         addCostCenter, updateCostCenter, deleteCostCenter,
         addFund, updateFund, deleteFund,
         addChurch, updateChurch, deleteChurch,
-        addAccountingAccount, updateAccountingAccount, deleteAccountingAccount
+        addAccountingAccount, updateAccountingAccount, deleteAccountingAccount,
+        addAssetCategory, updateAssetCategory, deleteAssetCategory
     } = useFinance();
 
     const [activeTab, setActiveTab] = useState<RegistryTab>('CHART_OF_ACCOUNTS');
@@ -72,6 +73,7 @@ export default function Registries() {
             case 'COST_CENTER': return data.costCenters.filter(c => c.churchId === currentChurchId);
             case 'FUND': return data.funds.filter(f => f.churchId === currentChurchId).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
             case 'CHURCH': return data.churches;
+            case 'ASSET_CATEGORY': return data.assetCategories?.filter(c => c.churchId === currentChurchId) || [];
             default: return [];
         }
     };
@@ -132,6 +134,10 @@ export default function Registries() {
             setChurchState(item.state || '');
         }
 
+        if (activeTab === 'ASSET_CATEGORY') {
+            // Nothing special for now
+        }
+
         setEntityIcon(item.icon || item.image || ''); // Support legacy image prop
         setIsEditingEntity(true);
     };
@@ -143,6 +149,7 @@ export default function Registries() {
         if (activeTab === 'COST_CENTER') await deleteCostCenter(id);
         if (activeTab === 'FUND') await deleteFund(id);
         if (activeTab === 'CHURCH') await deleteChurch(id);
+        if (activeTab === 'ASSET_CATEGORY') await deleteAssetCategory(id);
     };
 
     const handleMoveFund = async (index: number, direction: 'UP' | 'DOWN') => {
@@ -224,6 +231,9 @@ export default function Registries() {
                     address: churchAddress, city: churchCity, state: churchState
                 };
                 if (entityId) await updateChurch(churchData); else await addChurch(churchData);
+            } else if (activeTab === 'ASSET_CATEGORY') {
+                const ac: any = { id: entityId || genId(), name: entityName, churchId: currentChurchId! };
+                if (entityId) await updateAssetCategory(ac); else await addAssetCategory(ac);
             }
 
             resetForm();
@@ -248,6 +258,7 @@ export default function Registries() {
                     <TabButton active={activeTab === 'COST_CENTER'} onClick={() => { setActiveTab('COST_CENTER'); resetForm(); }} icon={Layers} label="Centros de Custo" />
                     <TabButton active={activeTab === 'FUND'} onClick={() => { setActiveTab('FUND'); resetForm(); }} icon={Target} label="Fundos / Projetos" />
                     <TabButton active={activeTab === 'CHURCH'} onClick={() => { setActiveTab('CHURCH'); resetForm(); }} icon={Building2} label="Igrejas" />
+                    <TabButton active={activeTab === 'ASSET_CATEGORY'} onClick={() => { setActiveTab('ASSET_CATEGORY'); resetForm(); }} icon={Archive} label="Categorias Patrimônio" />
                 </div>
             </div>
 
@@ -266,7 +277,8 @@ export default function Registries() {
                                     {activeTab === 'CATEGORY' ? 'Categorias de Receitas e Despesas' :
                                         activeTab === 'ACCOUNT' ? 'Contas Bancárias e Caixas' :
                                             activeTab === 'COST_CENTER' ? 'Centros de Custo / Departamentos' :
-                                                activeTab === 'FUND' ? 'Projetos e Fundos Especiais' : 'Igrejas e Congregações'}
+                                                activeTab === 'FUND' ? 'Projetos e Fundos Especiais' :
+                                                    activeTab === 'ASSET_CATEGORY' ? 'Categorias de Patrimônio' : 'Igrejas e Congregações'}
                                 </h2>
                                 {!isEditingEntity && (
                                     <button onClick={() => setIsEditingEntity(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-sm transition-colors">

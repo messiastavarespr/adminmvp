@@ -115,10 +115,19 @@ export interface Member {
   tags?: string[];
 }
 
+export interface AssetCategory {
+  id: string;
+  name: string;
+  churchId: string;
+  description?: string;
+  isSystemDefault?: boolean;
+}
+
 export interface Asset {
   id: string;
   name: string;
-  category: 'FURNITURE' | 'ELECTRONICS' | 'INSTRUMENTS' | 'VEHICLES' | 'OTHER';
+  categoryId: string; // References AssetCategory.id
+  category?: 'FURNITURE' | 'ELECTRONICS' | 'INSTRUMENTS' | 'VEHICLES' | 'OTHER'; // DEPRECATED used for migration
   acquisitionDate?: string;
   value?: number;
   location?: string;
@@ -222,6 +231,7 @@ export interface AppData {
   members: Member[];
   churches: Church[];
   assets: Asset[];
+  assetCategories: AssetCategory[];
   budgets: Budget[];
   auditLogs: AuditLog[];
   notifications: Notification[];

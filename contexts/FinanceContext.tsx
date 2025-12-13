@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset, UserRole } from '../types';
+import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset, AssetCategory, UserRole } from '../types';
 
 import { supabaseService } from '../services/supabaseService';
 
@@ -79,6 +79,10 @@ interface FinanceContextProps {
   updateAsset: (a: Asset) => void;
   deleteAsset: (id: string) => void;
 
+  addAssetCategory: (ac: AssetCategory) => void;
+  updateAssetCategory: (ac: AssetCategory) => void;
+  deleteAssetCategory: (id: string) => void;
+
   logAction: (action: string, level: 'INFO' | 'WARNING' | 'ERROR' | 'SYSTEM', details: string) => void;
   resetSystem: (options: { transactions: boolean; members: boolean; budgets: boolean; settings: boolean; audit: boolean }) => Promise<void>;
   toggleTheme: () => void;
@@ -103,6 +107,7 @@ const initialData: AppData = {
   auditLogs: [],
   notifications: [],
   assets: [],
+  assetCategories: [],
   theme: 'light',
 };
 
@@ -270,6 +275,10 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   const updateAsset = async (a: Asset) => { await supabaseService.updateAsset(a); refreshData(); };
   const deleteAsset = async (id: string) => { await supabaseService.deleteAsset(id); refreshData(); };
 
+  const addAssetCategory = async (ac: AssetCategory) => { await supabaseService.addAssetCategory(ac); refreshData(); };
+  const updateAssetCategory = async (ac: AssetCategory) => { await supabaseService.updateAssetCategory(ac); refreshData(); };
+  const deleteAssetCategory = async (id: string) => { await supabaseService.deleteAssetCategory(id); refreshData(); };
+
   return (
     <FinanceContext.Provider value={{
       data,
@@ -322,6 +331,9 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       addAsset,
       updateAsset,
       deleteAsset,
+      addAssetCategory,
+      updateAssetCategory,
+      deleteAssetCategory,
       resetSystem: async (options) => {
         if (currentUser?.role !== UserRole.ADMIN) throw new Error('Apenas administradores podem resetar o sistema.');
         await supabaseService.resetData(options);

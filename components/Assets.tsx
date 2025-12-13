@@ -35,7 +35,7 @@ const Assets: React.FC = () => {
 
     // Form State
     const [name, setName] = useState('');
-    const [category, setCategory] = useState<Asset['category']>('OTHER');
+    const [categoryId, setCategoryId] = useState<string>('');
     const [value, setValue] = useState('');
     const [acquisitionDate, setAcquisitionDate] = useState('');
     const [location, setLocation] = useState('');
@@ -43,6 +43,9 @@ const Assets: React.FC = () => {
     const [notes, setNotes] = useState('');
 
     const isAdmin = currentUser?.role === UserRole.ADMIN;
+    const currentChurchId = currentUser?.churchId || data.churches[0]?.id;
+
+    const assetCategories = data.assetCategories?.filter(c => c.churchId === currentChurchId) || [];
 
     // Filter Logic
     const filteredAssets = useMemo(() => {
@@ -50,7 +53,7 @@ const Assets: React.FC = () => {
             const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 asset.location?.toLowerCase().includes(searchTerm.toLowerCase());
 
-            const matchesCategory = filterCategory === 'ALL' || asset.category === filterCategory;
+            const matchesCategory = filterCategory === 'ALL' || asset.categoryId === filterCategory;
             const matchesStatus = filterStatus === 'ALL' || asset.status === filterStatus;
 
             return matchesSearch && matchesCategory && matchesStatus;
@@ -65,7 +68,7 @@ const Assets: React.FC = () => {
         if (asset) {
             setEditingAsset(asset);
             setName(asset.name);
-            setCategory(asset.category);
+            setCategoryId(asset.categoryId);
             setValue(asset.value?.toString() || '');
             setAcquisitionDate(asset.acquisitionDate || '');
             setLocation(asset.location || '');
@@ -74,7 +77,7 @@ const Assets: React.FC = () => {
         } else {
             setEditingAsset(null);
             setName('');
-            setCategory('FURNITURE');
+            setCategoryId(assetCategories.find(c => c.isSystemDefault)?.id || assetCategories[0]?.id || '');
             setValue('');
             setAcquisitionDate(new Date().toISOString().split('T')[0]);
             setLocation('');
@@ -93,7 +96,7 @@ const Assets: React.FC = () => {
                 id: editingAsset ? editingAsset.id : crypto.randomUUID(),
                 churchId: currentUser.churchId,
                 name,
-                category,
+                categoryId,
                 value: value ? parseFloat(value) : 0,
                 acquisitionDate: acquisitionDate || undefined,
                 location,
@@ -197,11 +200,9 @@ const Assets: React.FC = () => {
                             className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none"
                         >
                             <option value="ALL">Todas Categorias</option>
-                            <option value="FURNITURE">Móveis</option>
-                            <option value="ELECTRONICS">Eletrônicos</option>
-                            <option value="INSTRUMENTS">Instrumentos</option>
-                            <option value="VEHICLES">Veículos</option>
-                            <option value="OTHER">Outros</option>
+                            {assetCategories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -253,11 +254,7 @@ const Assets: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="text-xs font-medium px-2 py-1 rounded bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-600">
-                                                {asset.category === 'FURNITURE' && 'Móveis'}
-                                                {asset.category === 'ELECTRONICS' && 'Eletrônicos'}
-                                                {asset.category === 'INSTRUMENTS' && 'Instrumentos'}
-                                                {asset.category === 'VEHICLES' && 'Veículos'}
-                                                {asset.category === 'OTHER' && 'Outros'}
+                                                {assetCategories.find(c => c.id === asset.categoryId)?.name || 'Sem Categoria'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
@@ -329,15 +326,14 @@ const Assets: React.FC = () => {
                                     <div className="relative">
                                         <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                         <select
-                                            value={category}
-                                            onChange={(e) => setCategory(e.target.value as any)}
+                                            value={categoryId}
+                                            onChange={(e) => setCategoryId(e.target.value)}
                                             className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
                                         >
-                                            <option value="FURNITURE">Móveis</option>
-                                            <option value="ELECTRONICS">Eletrônicos</option>
-                                            <option value="INSTRUMENTS">Instrumentos</option>
-                                            <option value="VEHICLES">Veículos</option>
-                                            <option value="OTHER">Outros</option>
+                                            <option value="">Selecione uma categoria</option>
+                                            {assetCategories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>

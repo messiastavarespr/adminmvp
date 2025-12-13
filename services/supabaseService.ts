@@ -56,7 +56,8 @@ export const supabaseService = {
             { data: auditLogs },
             { data: users },
             { data: notifications },
-            { data: assets }
+            { data: assets },
+            { data: assetCategories }
         ] = await Promise.all([
             // 1. Recent Transactions (Full)
             supabase.from('transactions').select('*').gte('date', filterDate),
@@ -76,7 +77,8 @@ export const supabaseService = {
             supabase.from('audit_logs').select('*').order('date', { ascending: false }).limit(50),
             supabase.from('users').select('*'),
             supabase.from('notifications').select('*'),
-            supabase.from('assets').select('*')
+            supabase.from('assets').select('*'),
+            supabase.from('asset_categories').select('*')
         ]);
 
         // --- PROCESS LEGACY BALANCES ---
@@ -130,6 +132,7 @@ export const supabaseService = {
             users: mapToCamel<User[]>(users || []),
             notifications: mapToCamel<any[]>(notifications || []), // Notifications type might be loose or defined
             assets: mapToCamel<Asset[]>(assets || []),
+            assetCategories: mapToCamel<any[]>(assetCategories || []),
             theme: 'light', // Local preference only
         };
     },
@@ -173,6 +176,24 @@ export const supabaseService = {
 
     deleteCategory: async (id: string) => {
         const { error } = await supabase.from('categories').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    // --- Asset Categories ---
+    addAssetCategory: async (c: any) => {
+        const { id, ...payload } = mapToSnake(c);
+        const { error } = await supabase.from('asset_categories').insert([{ id, ...payload }]);
+        if (error) throw error;
+    },
+
+    updateAssetCategory: async (c: any) => {
+        const { id, ...payload } = mapToSnake(c);
+        const { error } = await supabase.from('asset_categories').update(payload).eq('id', id);
+        if (error) throw error;
+    },
+
+    deleteAssetCategory: async (id: string) => {
+        const { error } = await supabase.from('asset_categories').delete().eq('id', id);
         if (error) throw error;
     },
 
@@ -517,6 +538,7 @@ export const supabaseService = {
                 supabase.from('funds').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
                 supabase.from('accounting_accounts').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
                 supabase.from('assets').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('asset_categories').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
                 supabase.from('churches').delete().neq('id', 'ch_hq'), // Keep HQ? Maybe specific policy needed.
             ]);
         }
