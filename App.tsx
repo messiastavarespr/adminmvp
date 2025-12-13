@@ -1,29 +1,37 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu, Building2 } from './components/ui/Icons';
-import Dashboard from './components/Dashboard';
-import Ledger from './components/Ledger';
-import Settings from './components/Settings';
-import ScheduledTransactions from './components/ScheduledTransactions';
-import Reports from './components/Reports';
-import Members from './components/Members';
+import { FinanceProvider, useFinance } from './contexts/FinanceContext';
+import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
+import { notificationService } from './services/notificationService';
+
+// Eagerly loaded components (Critical Path)
 import Login from './components/Login';
-import MemberPortal from './components/MemberPortal';
-import Reconciliation from './components/Reconciliation';
+import Sidebar from './components/Sidebar';
+import Toast from './components/ui/Toast';
 import TransactionModal from './components/TransactionModal';
 import ScheduleModal from './components/ScheduleModal';
-import Toast from './components/ui/Toast';
-import AccountsPayable from './components/AccountsPayable';
-import Assets from './components/Assets';
-import Sidebar from './components/Sidebar';
-import Registries from './components/Registries';
-import { TithesEntry } from './components/TithesEntry';
-import TransactionDetailsModal from './components/TransactionDetailsModal';
-import { Tools } from './components/Tools';
-import { notificationService } from './services/notificationService';
-import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
-import { FinanceProvider, useFinance } from './contexts/FinanceContext';
+
+// Lazy loaded components (Code Splitting)
+const Dashboard = React.lazy(() => import('./components/Dashboard'));
+const Ledger = React.lazy(() => import('./components/Ledger'));
+const Settings = React.lazy(() => import('./components/Settings'));
+const ScheduledTransactions = React.lazy(() => import('./components/ScheduledTransactions'));
+const Reports = React.lazy(() => import('./components/Reports'));
+const Members = React.lazy(() => import('./components/Members'));
+const MemberPortal = React.lazy(() => import('./components/MemberPortal'));
+const Reconciliation = React.lazy(() => import('./components/Reconciliation'));
+const AccountsPayable = React.lazy(() => import('./components/AccountsPayable'));
+const Assets = React.lazy(() => import('./components/Assets'));
+const Registries = React.lazy(() => import('./components/Registries'));
+const TithesEntry = React.lazy(() => import('./components/TithesEntry').then(module => ({ default: module.TithesEntry }))); // Handle named export if any, checking usage
+// Note: TithesEntry was imported as named { TithesEntry } in previous App.tsx. 
+// If it is a named export, we need the above .then pattern.
+// Checking previous usage: import { TithesEntry } from './components/TithesEntry'; -> Yes, it was named.
+
+// Previous import: import { Tools } from './components/Tools';
+const Tools = React.lazy(() => import('./components/Tools').then(module => ({ default: module.Tools })));
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -35,13 +43,21 @@ const generateId = () => {
   });
 };
 
+const PageLoader = () => (
+  <div className="flex h-full w-full items-center justify-center p-12">
+    <div className="flex flex-col items-center gap-3">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+      <p className="text-sm text-gray-400 animate-pulse">Carregando...</p>
+    </div>
+  </div>
+);
+
 // Inner App Component that consumes the Context
 function AppContent() {
   const {
     data,
     currentUser,
     activeChurchId,
-    // activeTab removed
     login,
     logout,
     setActiveChurch,
@@ -196,13 +212,15 @@ function AppContent() {
   if (currentUser.role === UserRole.MEMBER) {
     const memberProfile = data.members.find(m => m.id === currentUser.memberId);
     return (
-      <MemberPortal
-        user={currentUser}
-        memberProfile={memberProfile}
-        transactions={data.transactions}
-        onLogout={logout}
-        logoUrl={systemLogo}
-      />
+      <Suspense fallback={<PageLoader />}>
+        <MemberPortal
+          user={currentUser}
+          memberProfile={memberProfile}
+          transactions={data.transactions}
+          onLogout={logout}
+          logoUrl={systemLogo}
+        />
+      </Suspense>
     );
   }
 
@@ -244,62 +262,64 @@ function AppContent() {
         </header>
 
         <div className="flex-1 overflow-auto p-4 lg:p-8 relative">
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={
-              <Dashboard
-                transactions={filteredAppData.transactions}
-                scheduled={filteredAppData.scheduled}
-                categories={filteredAppData.categories}
-                budgets={filteredAppData.budgets}
-                accounts={filteredAppData.accounts}
-                funds={filteredAppData.funds}
-                onNewTransaction={openNewTransaction}
-                userRole={currentUser.role}
-              />
-            } />
-            <Route path="/ledger" element={
-              <Ledger
-                transactions={filteredAppData.transactions}
-                categories={filteredAppData.categories}
-                accounts={filteredAppData.accounts}
-                costCenters={filteredAppData.costCenters}
-                funds={filteredAppData.funds}
-                members={filteredAppData.members}
-                onDelete={handleDeleteTransaction}
-                onEdit={handleEditTransaction}
-                onNewTransaction={openNewTransaction}
-                userRole={currentUser.role}
-                currentChurch={currentChurch}
-              />
-            } />
-            <Route path="/tithes" element={<TithesEntry />} />
-            <Route path="/registries" element={<Registries />} />
-            <Route path="/reconciliation" element={<Reconciliation onManualAdd={handleReconciliationManual} />} />
-            <Route path="/scheduled" element={
-              <ScheduledTransactions
-                scheduled={filteredAppData.scheduled}
-                categories={filteredAppData.categories}
-                accounts={filteredAppData.accounts}
-                costCenters={filteredAppData.costCenters}
-                onUpdate={refreshData}
-                onOpenModal={openNewSchedule}
-                onEdit={handleEditScheduled}
-                userRole={currentUser.role}
-              />
-            } />
-            <Route path="/payables" element={
-              <AccountsPayable transactions={filteredAppData.transactions} scheduled={filteredAppData.scheduled} categories={filteredAppData.categories} costCenters={filteredAppData.costCenters} />
-            } />
-            <Route path="/reports" element={<Reports data={filteredAppData} />} />
-            <Route path="/members" element={
-              <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} />
-            } />
-            <Route path="/tools" element={<Tools />} />
-            <Route path="/assets" element={<Assets />} />
-            <Route path="/settings" element={<Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={
+                <Dashboard
+                  transactions={filteredAppData.transactions}
+                  scheduled={filteredAppData.scheduled}
+                  categories={filteredAppData.categories}
+                  budgets={filteredAppData.budgets}
+                  accounts={filteredAppData.accounts}
+                  funds={filteredAppData.funds}
+                  onNewTransaction={openNewTransaction}
+                  userRole={currentUser.role}
+                />
+              } />
+              <Route path="/ledger" element={
+                <Ledger
+                  transactions={filteredAppData.transactions}
+                  categories={filteredAppData.categories}
+                  accounts={filteredAppData.accounts}
+                  costCenters={filteredAppData.costCenters}
+                  funds={filteredAppData.funds}
+                  members={filteredAppData.members}
+                  onDelete={handleDeleteTransaction}
+                  onEdit={handleEditTransaction}
+                  onNewTransaction={openNewTransaction}
+                  userRole={currentUser.role}
+                  currentChurch={currentChurch}
+                />
+              } />
+              <Route path="/tithes" element={<TithesEntry />} />
+              <Route path="/registries" element={<Registries />} />
+              <Route path="/reconciliation" element={<Reconciliation onManualAdd={handleReconciliationManual} />} />
+              <Route path="/scheduled" element={
+                <ScheduledTransactions
+                  scheduled={filteredAppData.scheduled}
+                  categories={filteredAppData.categories}
+                  accounts={filteredAppData.accounts}
+                  costCenters={filteredAppData.costCenters}
+                  onUpdate={refreshData}
+                  onOpenModal={openNewSchedule}
+                  onEdit={handleEditScheduled}
+                  userRole={currentUser.role}
+                />
+              } />
+              <Route path="/payables" element={
+                <AccountsPayable transactions={filteredAppData.transactions} scheduled={filteredAppData.scheduled} categories={filteredAppData.categories} costCenters={filteredAppData.costCenters} />
+              } />
+              <Route path="/reports" element={<Reports data={filteredAppData} />} />
+              <Route path="/members" element={
+                <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} />
+              } />
+              <Route path="/tools" element={<Tools />} />
+              <Route path="/assets" element={<Assets />} />
+              <Route path="/settings" element={<Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
         </div>
       </main>
 
