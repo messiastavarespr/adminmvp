@@ -12,8 +12,9 @@
     "styling": "Tailwind CSS (Dark/Light mode support via 'class' strategy)",
     "icons": "Lucide React",
     "state_management": "React Context API (FinanceContext)",
-    "persistence": "LocalStorage (storageService) with migration logic (v12)",
-    "ai_integration": "@google/genai (Gemini Flash 2.5) for OFX conversion",
+    "routing": "React Router v6",
+    "persistence": "Supabase (PostgreSQL) - Hybrid Architecture (Online-first with local caching)",
+    "ai_integration": "@google/genai (Gemini Flash 1.5) for OFX conversion",
     "libraries": [
       "recharts (Charts)",
       "jspdf & jspdf-autotable (PDF Reports)",
@@ -45,30 +46,63 @@
   },
   "business_rules": {
     "transactions": {
-      "types": ["INCOME", "EXPENSE", "TRANSFER"],
+      "types": [
+        "INCOME",
+        "EXPENSE",
+        "TRANSFER"
+      ],
       "transfer_logic": "Atomic pair creation: 1 Debit (Source) + 1 Credit (Target) linked by relatedTransactionId",
       "validation": "Amount > 0, Description required, FundId required, AccountId required."
     },
     "entities": {
       "church": {
-        "types": ["HEADQUARTERS", "BRANCH"],
-        "attributes": ["logo", "cnpj", "address", "contact_info"]
+        "types": [
+          "HEADQUARTERS",
+          "BRANCH"
+        ],
+        "attributes": [
+          "logo",
+          "cnpj",
+          "address",
+          "contact_info"
+        ]
       },
       "users": {
-        "roles": ["ADMIN", "TREASURER", "PASTOR", "MEMBER"],
+        "roles": [
+          "ADMIN",
+          "TREASURER",
+          "PASTOR",
+          "MEMBER"
+        ],
         "permissions": "Granular permissions object (UserPermissions) for non-admin roles."
       },
       "members": {
-        "types": ["MEMBER", "VISITOR", "SUPPLIER"],
-        "attributes": ["birthDate", "baptismDate"]
+        "types": [
+          "MEMBER",
+          "VISITOR",
+          "SUPPLIER"
+        ],
+        "attributes": [
+          "birthDate",
+          "baptismDate"
+        ]
       },
       "funds": {
-        "types": ["UNRESTRICTED", "RESTRICTED"],
+        "types": [
+          "UNRESTRICTED",
+          "RESTRICTED"
+        ],
         "purpose": "Segregation of resources (e.g., Building Fund vs General Fund)."
       },
       "accounting": {
         "structure": "Simplified Chart of Accounts (Plano de Contas) linked to Categories and Accounts.",
-        "types": ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"]
+        "types": [
+          "ASSET",
+          "LIABILITY",
+          "EQUITY",
+          "REVENUE",
+          "EXPENSE"
+        ]
       }
     },
     "reconciliation": {
@@ -79,22 +113,50 @@
       "import": "Supports OFX parsing via Regex/String manip or Gemini AI for complex formats."
     },
     "security": {
-      "auth": "SHA-256 password hashing via Web Crypto API.",
-      "data_privacy": "Local storage only. No external database. Export/Import via encrypted JSON/ZIP."
+      "auth": "SHA-256 password hashing via Web Crypto API (Client-side) + Supabase Auth integration pending.",
+      "data_privacy": "Data stored in Supabase (Cloud). Sensitive operations (System Reset) protected by Admin role."
     }
   },
   "features": {
     "dashboard": {
-      "kpis": ["Income", "Expense", "Balance", "Active Alerts"],
-      "charts": ["Evolution Area Chart", "Expenses Pie Chart"],
-      "filters": ["Weekly", "Monthly", "Quarterly", "Yearly"]
+      "kpis": [
+        "Income",
+        "Expense",
+        "Balance",
+        "Active Alerts"
+      ],
+      "charts": [
+        "Evolution Area Chart",
+        "Expenses Pie Chart"
+      ],
+      "filters": [
+        "Weekly",
+        "Monthly",
+        "Quarterly",
+        "Yearly"
+      ]
     },
     "ledger": {
-      "filters": ["Date Range", "Type", "Category", "Account", "Cost Center", "Fund"],
-      "actions": ["Receipt Generation", "Export to Excel"]
+      "filters": [
+        "Date Range",
+        "Type",
+        "Category",
+        "Account",
+        "Cost Center",
+        "Fund"
+      ],
+      "actions": [
+        "Receipt Generation",
+        "Export to Excel"
+      ]
     },
     "scheduled": {
-      "recurrence": ["NONE", "WEEKLY", "MONTHLY", "YEARLY"],
+      "recurrence": [
+        "NONE",
+        "WEEKLY",
+        "MONTHLY",
+        "YEARLY"
+      ],
       "logic": "Generates real transaction upon confirmation. Supports finite or infinite occurrences."
     },
     "reports": {
@@ -104,18 +166,16 @@
       "fiscal_council": "Formal opinion document generation."
     },
     "tools": {
-      "ofx_converter": "Uses Gemini 2.5 Flash to convert PDF/Text bank statements to OFX."
+      "ofx_converter": "Uses Gemini 1.5 Flash to convert PDF/Text bank statements to OFX."
     }
   },
   "ai_persona": {
     "role": "Senior Frontend Engineer & Product Architect",
     "tone": "Professional, Technical, Detail-Oriented",
     "constraints": [
-      "Do NOT use external backends; maintain offline-first architecture.",
+      "Use 'supabaseService' for all data mutations.",
       "Ensure all UI changes support Dark Mode.",
-      "Keep the file structure flat (root directory) as per project convention.",
-      "Use 'storageService' for all data mutations.",
-      "Preserve existing data structures during updates to avoid breaking localStorage compatibility."
+      "Keep the file structure flat (root directory) as per project convention."
     ]
   }
 }

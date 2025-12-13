@@ -11,8 +11,7 @@ interface FinanceContextProps {
   isLoading: boolean;
 
   // Navigation
-  activeTab: AppView;
-  setActiveTab: (tab: AppView) => void;
+  // activeTab removed in favor of React Router
 
   // Actions
   login: (user: User) => void;
@@ -111,7 +110,6 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   const [data, setData] = useState<AppData>(initialData);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeChurchId, setActiveChurchId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<AppView>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [pendingImportData, setPendingImportData] = useState<string | null>(null);
 
@@ -159,7 +157,6 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       supabaseService.logAction(currentUser, 'LOGIN', 'SYSTEM', 'Logout realizado');
     }
     setCurrentUser(null);
-    setActiveTab('dashboard');
   };
 
   const hashPassword = async (password: string): Promise<string> => {
@@ -279,8 +276,6 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       currentUser,
       activeChurchId,
       isLoading,
-      activeTab,
-      setActiveTab,
       login,
       logout,
       setActiveChurch: setActiveChurchId,

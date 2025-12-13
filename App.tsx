@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu, Building2 } from './components/ui/Icons';
 import Dashboard from './components/Dashboard';
 import Ledger from './components/Ledger';
@@ -15,13 +16,12 @@ import ScheduleModal from './components/ScheduleModal';
 import Toast from './components/ui/Toast';
 import AccountsPayable from './components/AccountsPayable';
 import Assets from './components/Assets';
-import Sidebar from './components/Sidebar'; // Import new component
+import Sidebar from './components/Sidebar';
 import Registries from './components/Registries';
 import { TithesEntry } from './components/TithesEntry';
-import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
-import { Tools } from './components/Tools'; // Import centralized Tools component
-
-import { notificationService } from './services/notificationService'; // Import notification service
+import TransactionDetailsModal from './components/TransactionDetailsModal';
+import { Tools } from './components/Tools';
+import { notificationService } from './services/notificationService';
 import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
 import { FinanceProvider, useFinance } from './contexts/FinanceContext';
 
@@ -41,7 +41,7 @@ function AppContent() {
     data,
     currentUser,
     activeChurchId,
-    activeTab, // Managed by Context
+    // activeTab removed
     login,
     logout,
     setActiveChurch,
@@ -51,18 +51,16 @@ function AppContent() {
     deleteTransaction
   } = useFinance();
 
-  // Removed local activeTab state
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   const [isTransModalOpen, setTransModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [preFillTransaction, setPreFillTransaction] = useState<Partial<Transaction> | null>(null); // New state for pre-filling
+  const [preFillTransaction, setPreFillTransaction] = useState<Partial<Transaction> | null>(null);
 
   const [isScheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduledTransaction | null>(null);
 
   const [modalInitialType, setModalInitialType] = useState<TransactionType>(TransactionType.INCOME);
-  const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
 
   useEffect(() => {
     if (data.theme === 'dark') {
@@ -75,19 +73,12 @@ function AppContent() {
   // --- Notification Logic ---
   useEffect(() => {
     if (currentUser) {
-      // 1. Request permission
       notificationService.requestPermission().then(granted => {
         if (granted) {
-          // 2. Check for alerts (using ONLY active church data or ALL depending on context, usually user cares about ALL their responsibilities)
-          // Filtering by activeChurchId context if needed, but alerts are usually global for the user.
-          // Let's filter by the user's church scope if they are not Admin/HQ.
-
           const relevantScheduled = data.scheduled.filter(s => {
-            // If user is restricted to a church, only show that church's alerts
             if (currentUser.role !== UserRole.ADMIN && s.churchId !== currentUser.churchId) return false;
             return true;
           });
-
           notificationService.checkAndNotify(relevantScheduled);
         }
       });
@@ -107,7 +98,6 @@ function AppContent() {
   const filteredMembers = data.members.filter(m => activeChurchId === 'ALL' ? true : m.churchId === activeChurchId);
   const filteredBudgets = data.budgets.filter(b => activeChurchId === 'ALL' ? true : b.churchId === activeChurchId);
 
-  // Create a filtered AppData object for child components that expect it
   const filteredAppData: AppData = {
     ...data,
     transactions: filteredTransactions,
@@ -130,8 +120,6 @@ function AppContent() {
       const updatedTransaction: Transaction = { ...transactionData, id: transactionData.id, churchId: targetChurchId } as Transaction;
       updateTransaction(updatedTransaction);
     } else {
-      // Supabase service will handle ID or we allow generateId here. 
-      // If Supabase service expects 'id' to be set so it can insert with ID, then keep generateId.
       const newTransaction: Transaction = { ...transactionData, id: transactionData.id || generateId(), churchId: targetChurchId } as Transaction;
       addTransaction(newTransaction);
     }
@@ -229,7 +217,6 @@ function AppContent() {
         />
       )}
 
-      {/* New Modular Sidebar Component */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -257,8 +244,9 @@ function AppContent() {
         </header>
 
         <div className="flex-1 overflow-auto p-4 lg:p-8 relative">
-          <div key={activeTab} className="animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
-            {activeTab === 'dashboard' && (
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={
               <Dashboard
                 transactions={filteredAppData.transactions}
                 scheduled={filteredAppData.scheduled}
@@ -269,8 +257,8 @@ function AppContent() {
                 onNewTransaction={openNewTransaction}
                 userRole={currentUser.role}
               />
-            )}
-            {activeTab === 'ledger' && (
+            } />
+            <Route path="/ledger" element={
               <Ledger
                 transactions={filteredAppData.transactions}
                 categories={filteredAppData.categories}
@@ -284,11 +272,11 @@ function AppContent() {
                 userRole={currentUser.role}
                 currentChurch={currentChurch}
               />
-            )}
-            {activeTab === 'tithes' && <TithesEntry />}
-            {activeTab === 'registries' && <Registries />}
-            {activeTab === 'reconciliation' && <Reconciliation onManualAdd={handleReconciliationManual} />}
-            {activeTab === 'scheduled' && (
+            } />
+            <Route path="/tithes" element={<TithesEntry />} />
+            <Route path="/registries" element={<Registries />} />
+            <Route path="/reconciliation" element={<Reconciliation onManualAdd={handleReconciliationManual} />} />
+            <Route path="/scheduled" element={
               <ScheduledTransactions
                 scheduled={filteredAppData.scheduled}
                 categories={filteredAppData.categories}
@@ -299,18 +287,19 @@ function AppContent() {
                 onEdit={handleEditScheduled}
                 userRole={currentUser.role}
               />
-            )}
-            {activeTab === 'payables' && (
+            } />
+            <Route path="/payables" element={
               <AccountsPayable transactions={filteredAppData.transactions} scheduled={filteredAppData.scheduled} categories={filteredAppData.categories} costCenters={filteredAppData.costCenters} />
-            )}
-            {activeTab === 'reports' && <Reports data={filteredAppData} />}
-            {activeTab === 'members' && (
+            } />
+            <Route path="/reports" element={<Reports data={filteredAppData} />} />
+            <Route path="/members" element={
               <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} />
-            )}
-            {activeTab === 'tools' && <Tools />}
-            {activeTab === 'assets' && <Assets />}
-            {activeTab === 'settings' && <Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />}
-          </div>
+            } />
+            <Route path="/tools" element={<Tools />} />
+            <Route path="/assets" element={<Assets />} />
+            <Route path="/settings" element={<Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
         </div>
       </main>
 
@@ -336,7 +325,9 @@ function AppContent() {
 export default function App() {
   return (
     <FinanceProvider>
-      <AppContent />
+      <Router>
+        <AppContent />
+      </Router>
     </FinanceProvider>
   );
 }

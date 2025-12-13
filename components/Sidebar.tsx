@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   BookOpen,
@@ -20,10 +21,10 @@ import {
   UserCheck,
   ChevronDown,
   ChevronRight,
-  Package,
   Archive
 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
+// AppView imported just for config consistency if needed, but not for state
 import { AppView } from '../types';
 
 interface SidebarProps {
@@ -32,87 +33,87 @@ interface SidebarProps {
 }
 
 interface SidebarItemProps {
-  id: AppView;
+  to: string;
   icon: React.ElementType;
   label: string;
-  isActive: boolean;
-  onClick: (id: AppView) => void;
+  onClick: () => void;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ id, icon: Icon, label, isActive, onClick }) => {
+const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon: Icon, label, onClick }) => {
   return (
-    <button
-      onClick={() => onClick(id)}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${isActive
-        ? 'bg-blue-600 text-white shadow-md'
-        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
-        }`}
+    <NavLink
+      to={to}
+      onClick={onClick}
+      className={({ isActive }) => `
+        w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200
+        ${isActive
+          ? 'bg-blue-600 text-white shadow-md'
+          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800'
+        }
+      `}
     >
       <Icon size={20} />
       <span className="font-medium">{label}</span>
-    </button>
+    </NavLink>
   );
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { data, currentUser, logout, activeTab, setActiveTab, toggleTheme } = useFinance();
+  const { data, currentUser, logout, toggleTheme } = useFinance();
+  const location = useLocation();
 
   // State to track expanded sections
   const [expandedSections, setExpandedSections] = useState<string[]>(['Principal', 'Financeiro']);
 
-  const handleNavigation = (id: AppView) => {
-    setActiveTab(id);
-    onClose();
-  };
-
   const currentChurch = data.churches.find(c => c.id === currentUser?.churchId) || data.churches[0];
   const sidebarLogo = currentChurch?.logo;
 
-  const menuSections: { title: string; icon?: React.ElementType; items: { id: AppView; label: string; icon: React.ElementType }[] }[] = [
+  const menuSections: { title: string; icon?: React.ElementType; items: { path: string; label: string; icon: React.ElementType }[] }[] = [
     {
       title: 'Principal',
       items: [
-        { id: 'dashboard' as AppView, label: 'Visão Geral', icon: LayoutDashboard },
+        { path: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard },
       ]
     },
     {
       title: 'Financeiro',
       items: [
-        { id: 'ledger' as AppView, label: 'Livro Caixa', icon: BookOpen },
-        { id: 'tithes' as AppView, label: 'Dízimos', icon: DollarSign },
-        { id: 'payables' as AppView, label: 'Contas a Pagar', icon: ClipboardList },
-        { id: 'scheduled' as AppView, label: 'Agendamentos', icon: CalendarClock },
-        { id: 'reconciliation' as AppView, label: 'Conciliação', icon: Link },
+        { path: '/ledger', label: 'Livro Caixa', icon: BookOpen },
+        { path: '/tithes', label: 'Dízimos', icon: DollarSign },
+        { path: '/payables', label: 'Contas a Pagar', icon: ClipboardList },
+        { path: '/scheduled', label: 'Agendamentos', icon: CalendarClock },
+        { path: '/reconciliation', label: 'Conciliação', icon: Link },
       ]
     },
     {
       title: 'Cadastros',
       items: [
-        { id: 'members' as AppView, label: 'Pessoas', icon: UserCheck },
-        { id: 'registries' as AppView, label: 'Categorias & Contas', icon: Database },
+        { path: '/members', label: 'Pessoas', icon: UserCheck },
+        { path: '/registries', label: 'Categorias & Contas', icon: Database },
       ]
     },
     {
       title: 'Gestão',
       items: [
-        { id: 'reports' as AppView, label: 'Relatórios', icon: BarChart3 },
-        { id: 'assets' as AppView, label: 'Patrimônio', icon: Archive },
-        { id: 'tools' as AppView, label: 'Ferramentas', icon: FileJson },
-        { id: 'settings' as AppView, label: 'Configurações', icon: SettingsIcon },
+        { path: '/reports', label: 'Relatórios', icon: BarChart3 },
+        { path: '/assets', label: 'Patrimônio', icon: Archive },
+        { path: '/tools', label: 'Ferramentas', icon: FileJson },
+        { path: '/settings', label: 'Configurações', icon: SettingsIcon },
       ]
     }
   ];
 
   // Auto-expand the section containing the active tab on mount or tab change
   useEffect(() => {
+    const currentPath = location.pathname;
     const activeSection = menuSections.find(section =>
-      section.items.some(item => item.id === activeTab)
+      section.items.some(item => item.path === currentPath)
     );
 
     if (activeSection && !expandedSections.includes(activeSection.title)) {
       setExpandedSections(prev => [...prev, activeSection.title]);
     }
-  }, [activeTab]);
+  }, [location.pathname]);
 
   const toggleSection = (title: string) => {
     setExpandedSections(prev =>
@@ -141,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <h1 className="text-xl font-bold text-gray-800 dark:text-white leading-tight flex items-center gap-1">
               MVPFin <ChurchCross className="text-blue-600" size={16} />
             </h1>
-            <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">v2.0 Pro</span>
+            <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">v2.1 Router</span>
           </div>
           <button onClick={onClose} className="lg:hidden ml-auto text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
             <X size={20} />
@@ -152,7 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto custom-scrollbar">
           {menuSections.map((section, idx) => {
             const isExpanded = expandedSections.includes(section.title);
-            const hasActiveChild = section.items.some(item => item.id === activeTab);
+            const hasActiveChild = section.items.some(item => item.path === location.pathname);
 
             return (
               <div key={idx}>
@@ -180,12 +181,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   }`}>
                   {section.items.map((item) => (
                     <SidebarItem
-                      key={item.id}
-                      id={item.id}
+                      key={item.path}
+                      to={item.path}
                       label={item.label}
                       icon={item.icon}
-                      isActive={activeTab === item.id}
-                      onClick={handleNavigation}
+                      onClick={onClose}
                     />
                   ))}
                 </div>
