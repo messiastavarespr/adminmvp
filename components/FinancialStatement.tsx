@@ -28,7 +28,7 @@ export const FinancialStatement: React.FC = () => {
         const previousTransactions = data.transactions.filter(t =>
             t.churchId === currentChurch?.id &&
             new Date(t.date) < startOfMonth &&
-            t.status === 'COMPLETED'
+            t.isPaid
         );
 
         previousTransactions.forEach(t => {
@@ -41,7 +41,7 @@ export const FinancialStatement: React.FC = () => {
             t.churchId === currentChurch?.id &&
             new Date(t.date) >= startOfMonth &&
             new Date(t.date) <= endOfMonth &&
-            t.status === 'COMPLETED'
+            t.isPaid
         );
 
         const totalIncome = monthTransactions
@@ -69,7 +69,7 @@ export const FinancialStatement: React.FC = () => {
                 const accTxs = data.transactions.filter(t =>
                     t.accountId === acc.id &&
                     new Date(t.date) <= endOfMonth &&
-                    t.status === 'COMPLETED'
+                    t.isPaid
                 );
                 accTxs.forEach(t => {
                     if (t.type === TransactionType.INCOME) bal += t.amount;
