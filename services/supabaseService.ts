@@ -277,6 +277,7 @@ export const supabaseService = {
             .upload(filePath, file);
 
         if (uploadError) {
+            console.error("Supabase Storage Upload Error:", uploadError);
             throw uploadError;
         }
 
