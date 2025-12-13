@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Transaction, TransactionType, Category, Account, UserRole, CostCenter, Member, Church, Fund } from '../types';
-import { Filter, Trash2, FileText, Download, TrendingUp, TrendingDown, Wallet, ArrowLeftRight, Search, X, Edit2, Plus, Minus, Eye, CalendarClock, ChevronLeft, ChevronRight, FileSpreadsheet, Share2, AlertCircle, Target, User } from './ui/Icons';
+import { Filter, Trash2, FileText, Download, TrendingUp, TrendingDown, Wallet, ArrowLeftRight, Search, X, Edit2, Plus, Minus, Eye, CalendarClock, ChevronLeft, ChevronRight, FileSpreadsheet, Share2, AlertCircle, Target, User, Paperclip } from './ui/Icons';
 import ConfirmationModal from './ConfirmationModal';
 import TransactionDetailsModal from './TransactionDetailsModal';
 import ReceiptModal from './ReceiptModal';
@@ -175,6 +175,15 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="text-gray-400 hover:text-emerald-500" title="Recibo Digital"><Share2 size={16} /></button>}
+                        {t.attachments && t.attachments.length > 0 && (
+                          <button
+                            onClick={() => window.open(t.attachments[0], '_blank')}
+                            className="text-gray-400 hover:text-blue-500"
+                            title={`Ver Anexo (${t.attachments.length})`}
+                          >
+                            <Paperclip size={16} />
+                          </button>
+                        )}
                         <button onClick={() => setViewingTransaction(t)} className="text-gray-400 hover:text-blue-500" title="Visualizar"><Eye size={16} /></button>
                         {canEdit && <><button onClick={() => onEdit(t)} className="text-gray-400 hover:text-amber-500" title="Editar"><Edit2 size={16} /></button><button onClick={() => setItemToDelete(t.id)} className="text-gray-400 hover:text-red-500" title="Excluir"><Trash2 size={16} /></button></>}
                       </div>
@@ -206,6 +215,9 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                     <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg"><span>{getCategoryName(t.categoryId)}</span><span>{getFundName(t.fundId)}</span></div>
                     <div className="flex justify-end gap-2 pt-2">
                       {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-bold border border-emerald-100 dark:border-emerald-800"><Share2 size={14} /> Recibo</button>}
+                      {t.attachments && t.attachments.length > 0 && (
+                        <button onClick={() => window.open(t.attachments[0], '_blank')} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-blue-500"><Paperclip size={16} /></button>
+                      )}
                       <button onClick={() => setViewingTransaction(t)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-blue-500"><Eye size={16} /></button>
                       {canEdit && (
                         <>

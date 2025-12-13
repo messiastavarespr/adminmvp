@@ -266,6 +266,24 @@ export const supabaseService = {
         await supabase.from('audit_logs').insert([log]);
     },
 
+    // --- Storage ---
+    uploadAttachment: async (file: File): Promise<string> => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('attachments')
+            .upload(filePath, file);
+
+        if (uploadError) {
+            throw uploadError;
+        }
+
+        const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
+        return data.publicUrl;
+    },
+
     // --- Specialized Operations ---
 
     addTransfer: async (

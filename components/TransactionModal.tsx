@@ -45,9 +45,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   // Transfer Fields
   const [toAccountId, setToAccountId] = useState('');
 
-  // Attachments (Multi)
-  const [attachments, setAttachments] = useState<{ name: string, data: string }[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Removed duplicate fileInputRef
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -68,12 +66,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setMemberId(editingTransaction.memberOrSupplierId || '');
 
         if (editingTransaction.attachments) {
-          setAttachments(editingTransaction.attachments.map((data, idx) => ({
-            name: `Anexo ${idx + 1}`,
-            data
-          })));
+          setExistingAttachments(editingTransaction.attachments);
         } else {
-          setAttachments([]);
+          setExistingAttachments([]);
         }
 
       } else {
@@ -106,7 +101,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
         setToAccountId('');
         setMemberId('');
-        setAttachments([]);
+        setExistingAttachments([]);
       }
       setErrors({});
     }
@@ -153,41 +148,85 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return isValid;
   };
 
+  // Attachments
+  const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // ... (logic from before)
+    if (editingTransaction && editingTransaction.attachments) {
+      setExistingAttachments(editingTransaction.attachments);
+    } else {
+      setExistingAttachments([]);
+    }
+    setNewFiles([]);
+    // ...
+  }, [isOpen, editingTransaction]);
+
+  // Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (attachments.length >= 5) { alert("Máximo de 5 arquivos."); return; }
+    const totalCount = existingAttachments.length + newFiles.length;
+    if (totalCount >= 5) { alert("Máximo de 5 arquivos."); return; }
+
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 1024 * 1024) { alert("Arquivo muito grande (Máx: 1MB)"); return; }
-      const reader = new FileReader();
-      reader.onloadend = () => { setAttachments(prev => [...prev, { name: file.name, data: reader.result as string }]); };
-      reader.readAsDataURL(file);
+      if (file.size > 5 * 1024 * 1024) { alert("Arquivo muito grande (Máx: 5MB)"); return; }
+      setNewFiles(prev => [...prev, file]);
     }
+    // Reset inputs
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeAttachment = (index: number) => { setAttachments(prev => prev.filter((_, i) => i !== index)); };
+  const removeExisting = (index: number) => {
+    setExistingAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
-  const proceedSave = () => {
-    if (type === TransactionType.TRANSFER && onTransfer) {
-      onTransfer(parseFloat(amount), accountId, toAccountId, fundId, date, description);
-    } else {
-      const selectedMember = members.find(m => m.id === memberId);
-      onSave({
-        id: editingTransaction?.id,
-        date,
-        amount: parseFloat(amount),
-        description,
-        categoryId,
-        costCenterId: costCenterId || undefined,
-        fundId, // Save Fund
-        accountId,
-        type,
-        memberOrSupplierId: memberId || undefined,
-        memberOrSupplierName: selectedMember ? selectedMember.name : undefined,
-        isPaid: true,
-        attachments: attachments.map(a => a.data)
-      });
+  const removeNew = (index: number) => {
+    setNewFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const proceedSave = async () => {
+    try {
+      setIsUploading(true);
+      const { supabaseService } = await import('../services/supabaseService');
+
+      // Upload new files
+      const uploadedUrls = await Promise.all(newFiles.map(file => supabaseService.uploadAttachment(file)));
+      const finalAttachments = [...existingAttachments, ...uploadedUrls];
+
+      if (type === TransactionType.TRANSFER && onTransfer) {
+        // Transfer currently doesn't support attachments in the interface signature? 
+        // It seems onTransfer signature in Props is: (amount, from, to, fundId, date, desc) => void
+        // We might lose attachments for transfers if not updated.
+        // For now, let's just proceed. The User specifically asked for Expenses (Saídas).
+        onTransfer(parseFloat(amount), accountId, toAccountId, fundId, date, description);
+      } else {
+        const selectedMember = members.find(m => m.id === memberId);
+        onSave({
+          id: editingTransaction?.id,
+          date,
+          amount: parseFloat(amount),
+          description,
+          categoryId,
+          costCenterId: costCenterId || undefined,
+          fundId,
+          accountId,
+          type,
+          memberOrSupplierId: memberId || undefined,
+          memberOrSupplierName: selectedMember ? selectedMember.name : undefined,
+          isPaid: true,
+          attachments: finalAttachments
+        });
+      }
+      onClose();
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao fazer upload dos arquivos. Tente novamente.");
+    } finally {
+      setIsUploading(false);
     }
-    onClose();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -343,15 +382,27 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1"><Paperclip size={12} /> Anexos (Máx 5)</label>
             <div className="space-y-2">
-              {attachments.map((file, idx) => (
-                <div key={idx} className="flex justify-between items-center bg-gray-50 dark:bg-slate-700 p-2 rounded text-sm">
-                  <span className="truncate max-w-[200px] text-gray-700 dark:text-gray-300">{file.name}</span>
-                  <button type="button" onClick={() => removeAttachment(idx)} className="text-red-500"><X size={14} /></button>
+              {/* Existing Attachments */}
+              {existingAttachments.map((url, idx) => (
+                <div key={`existing-${idx}`} className="flex justify-between items-center bg-gray-50 dark:bg-slate-700 p-2 rounded text-sm">
+                  <span className="truncate max-w-[200px] text-gray-700 dark:text-gray-300">Anexo {idx + 1}</span>
+                  <button type="button" onClick={() => removeExisting(idx)} className="text-red-500"><X size={14} /></button>
                 </div>
               ))}
-              {attachments.length < 5 && (
+
+              {/* New Files */}
+              {newFiles.map((file, idx) => (
+                <div key={`new-${idx}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-sm border border-blue-100 dark:border-blue-800">
+                  <span className="truncate max-w-[200px] text-blue-700 dark:text-blue-300">{file.name}</span>
+                  <button type="button" onClick={() => removeNew(idx)} className="text-red-500"><X size={14} /></button>
+                </div>
+              ))}
+
+              {(existingAttachments.length + newFiles.length) < 5 && (
                 <div className="border border-dashed border-gray-300 dark:border-slate-600 rounded p-3 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors" onClick={() => fileInputRef.current?.click()}>
-                  <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400 text-sm"><Upload size={14} /> Adicionar Arquivo</div>
+                  <div className="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+                    {isUploading ? <span className="animate-pulse">Enviando...</span> : <><Upload size={14} /> Adicionar Arquivo</>}
+                  </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
                 </div>
               )}
@@ -359,8 +410,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           </div>
 
           <div className="pt-2 flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg border border-gray-300 dark:border-slate-600 font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-gray-700 dark:text-gray-300">Cancelar</button>
-            <button type="submit" className={`flex-1 py-3 rounded-lg text-white font-medium shadow-lg transition-transform active:scale-95 ${type === TransactionType.INCOME ? 'bg-emerald-600 hover:bg-emerald-700' : type === TransactionType.EXPENSE ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'}`}>Confirmar</button>
+            <button type="button" onClick={onClose} disabled={isUploading} className="flex-1 py-3 rounded-lg border border-gray-300 dark:border-slate-600 font-medium hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-gray-700 dark:text-gray-300">Cancelar</button>
+            <button type="submit" disabled={isUploading} className={`flex-1 py-3 rounded-lg text-white font-medium shadow-lg transition-transform active:scale-95 ${type === TransactionType.INCOME ? 'bg-emerald-600 hover:bg-emerald-700' : type === TransactionType.EXPENSE ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'} ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              {isUploading ? 'Salvando...' : 'Confirmar'}
+            </button>
           </div>
         </form>
       </div>
