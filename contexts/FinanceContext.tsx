@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset, UserRole } from '../types';
-import { storageService } from '../services/storageService';
+
 import { supabaseService } from '../services/supabaseService';
 
 interface FinanceContextProps {

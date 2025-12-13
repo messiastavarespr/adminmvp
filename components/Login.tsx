@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { LogIn, Users, Lock, Search, ChevronDown, Check, Building2, AlertTriangle, Eye, EyeOff, Trash2, ChurchCross, Image as ImageIcon } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
-// import { storageService } from '../services/storageService';
+
 
 interface LoginProps {
   users: User[];

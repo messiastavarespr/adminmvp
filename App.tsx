@@ -20,7 +20,7 @@ import Registries from './components/Registries';
 import { TithesEntry } from './components/TithesEntry';
 import TransactionDetailsModal from './components/TransactionDetailsModal'; // Added import to ensure it is available if not already
 import { Tools } from './components/Tools'; // Import centralized Tools component
-import { storageService } from './services/storageService';
+
 import { notificationService } from './services/notificationService'; // Import notification service
 import { AppData, Transaction, TransactionType, ScheduledTransaction, User, UserRole, BankTransaction } from './types';
 import { FinanceProvider, useFinance } from './contexts/FinanceContext';
