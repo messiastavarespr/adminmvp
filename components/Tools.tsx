@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import { OFXConverter } from './OFXConverter';
 import { ExportData } from './ExportData';
-import { FileJson, Download, Wrench } from './ui/Icons';
+import { ReceiptGenerator } from './ReceiptGenerator'; // Import the new component
+import { FileJson, Download, Wrench, FileText } from './ui/Icons'; // Added FileText
 
-type ToolTab = 'OFX' | 'EXPORT';
+type ToolTab = 'OFX' | 'EXPORT' | 'RECEIPT'; // Added RECEIPT
 
 export const Tools: React.FC = () => {
-    const [activeTool, setActiveTool] = useState<ToolTab>('EXPORT'); // Default to Export as requested high priority
+    const [activeTool, setActiveTool] = useState<ToolTab>('RECEIPT'); // Default to Receipt as it is new
 
     return (
         <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-900">
@@ -20,6 +21,12 @@ export const Tools: React.FC = () => {
 
                 {/* TABS */}
                 <div className="flex gap-2 mt-6 overflow-x-auto pb-1">
+                    <button
+                        onClick={() => setActiveTool('RECEIPT')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTool === 'RECEIPT' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                    >
+                        <FileText size={18} /> Gerador de Recibos
+                    </button>
                     <button
                         onClick={() => setActiveTool('EXPORT')}
                         className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTool === 'EXPORT' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
@@ -40,6 +47,7 @@ export const Tools: React.FC = () => {
                 <div className="max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
                     {activeTool === 'OFX' && <OFXConverter />}
                     {activeTool === 'EXPORT' && <ExportData />}
+                    {activeTool === 'RECEIPT' && <ReceiptGenerator />}
                 </div>
             </div>
         </div>
