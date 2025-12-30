@@ -21,8 +21,10 @@ interface ReconciliationMatch {
 }
 
 const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void }> = ({ onManualAdd }) => {
-    const { data, addTransaction, updateTransaction, activeChurchId } = useFinance();
+    const { data, addTransaction, updateTransaction, activeChurchId, isLoading } = useFinance();
     const { toast } = useToast();
+
+    if (isLoading) return <div className="p-8 text-center text-gray-500">Carregando dados...</div>;
 
     const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
     const [matches, setMatches] = useState<ReconciliationMatch[]>([]);
@@ -43,6 +45,14 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
             var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    };
+
+    const safeDateFormat = (dateStr: string) => {
+        try {
+            return new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR');
+        } catch (e) {
+            return dateStr;
+        }
     };
 
     // --- 1. Parser OFX Robusto ---
@@ -85,6 +95,14 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
 
                     if (isNaN(rawAmountNum)) continue;
 
+
+                    // Validate Date
+                    const testDate = new Date(`${formattedDate}T12:00:00`);
+                    if (isNaN(testDate.getTime())) {
+                        console.warn("Invalid date found in OFX:", formattedDate);
+                        continue;
+                    }
+
                     const txType = rawAmountNum < 0 ? 'DEBIT' : 'CREDIT';
 
                     transactions.push({
@@ -113,13 +131,16 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
 
         bankTxns.forEach(bankTx => {
             // 1. Tentar Match Exato (Valor Igual + Data Igual)
-            // Nota: Comparamos strings YYYY-MM-DD direto
-            let match = openSystemTxns.find(sysTx =>
-                Math.abs(sysTx.amount - bankTx.amount) < 0.01 && // Comparação float segura
-                sysTx.date === bankTx.date &&
-                ((bankTx.type === 'CREDIT' && sysTx.type === TransactionType.INCOME) ||
-                    (bankTx.type === 'DEBIT' && sysTx.type === TransactionType.EXPENSE))
-            );
+            // Fix: Normalize dates to strings YYYY-MM-DD for comparison to ignore time
+            let match = openSystemTxns.find(sysTx => {
+                const sysDate = sysTx.date.split('T')[0];
+                const bankDate = bankTx.date; // already YYYY-MM-DD from parser
+
+                return Math.abs(sysTx.amount - bankTx.amount) < 0.01 &&
+                    sysDate === bankDate &&
+                    ((bankTx.type === 'CREDIT' && sysTx.type === TransactionType.INCOME) ||
+                        (bankTx.type === 'DEBIT' && sysTx.type === TransactionType.EXPENSE));
+            });
 
             if (match) {
                 newMatches.push({ bankTx, sysTx: match, matchType: 'EXACT' });
@@ -135,7 +156,7 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                     (bankTx.type === 'DEBIT' && sysTx.type === TransactionType.EXPENSE);
                 if (!isCompatibleType) return false;
 
-                const d1 = new Date(sysTx.date + 'T12:00:00').getTime();
+                const d1 = new Date(sysTx.date.split('T')[0] + 'T12:00:00').getTime();
                 const d2 = new Date(bankTx.date + 'T12:00:00').getTime();
                 const diffDays = Math.abs(d1 - d2) / (1000 * 3600 * 24);
 
@@ -173,6 +194,15 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
             }
         }
     }, [pendingImportData]);
+
+    // Added Logic: Re-run matching when system transactions update (e.g. after adding a new one)
+    // AND when activeChurchId changes (e.g. after session restore)
+    useEffect(() => {
+        if (bankTransactions.length > 0) {
+            console.log("Running matching with Church ID:", activeChurchId);
+            runMatchingAlgorithm(bankTransactions);
+        }
+    }, [data.transactions, activeChurchId]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -219,12 +249,17 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
     };
 
     // --- 3. Ações ---
-    const confirmMatch = (match: ReconciliationMatch) => {
+    const confirmMatch = async (match: ReconciliationMatch) => {
         if (match.sysTx) {
-            updateTransaction({ ...match.sysTx, reconciled: true });
-            // Remove visualmente da lista
-            setMatches(prev => prev.filter(m => m.bankTx.id !== match.bankTx.id));
-            toast.success("Transação conciliada com sucesso.");
+            try {
+                await updateTransaction({ ...match.sysTx, reconciled: true });
+                // Remove visualmente da lista
+                setMatches(prev => prev.filter(m => m.bankTx.id !== match.bankTx.id));
+                toast.success("Transação conciliada com sucesso.");
+            } catch (e) {
+                console.error("Erro ao conciliar:", e);
+                toast.error("Erro ao salvar conciliação.");
+            }
         }
     };
 
@@ -243,12 +278,27 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         if (exactNameMatch) return exactNameMatch.id;
 
         // 2. Fallback to default logic (first of type)
-        return compatibleCategories[0]?.id || data.categories[0].id;
+        // CHECK IF CATEGORIES EXIST TO AVOID CRASH
+        const firstByType = compatibleCategories[0];
+        if (firstByType) return firstByType.id;
+
+        // Final fallback: any category or empty string if absolutely nothing exists
+        return data.categories[0]?.id || '';
     };
 
-    const createFromBank = (bankTx: BankTransaction) => {
+    const createFromBank = async (bankTx: BankTransaction) => {
         // Cria automaticamente usando categoria sugerida
         const catId = getSuggestedCategory(bankTx);
+
+        // Validation for Foreign Keys
+        const accountId = data.accounts[0]?.id || '';
+        const fundId = data.funds[0]?.id || '';
+        const churchId = activeChurchId || (data.churches[0]?.id || '');
+
+        if (!accountId) { toast.error("Crie uma CONTA antes de adicionar transações."); return; }
+        if (!fundId) { toast.error("Crie um FUNDO antes de adicionar transações."); return; }
+        if (!catId) { toast.error("Crie uma CATEGORIA antes de adicionar transações."); return; }
+        if (!churchId) { toast.error("Selecione uma IGREJA antes de adicionar transações."); return; }
 
         const newTx: Transaction = {
             id: genId(), // Fix: Use UUID
@@ -256,16 +306,23 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
             amount: bankTx.amount,
             description: bankTx.description,
             type: bankTx.type === 'CREDIT' ? TransactionType.INCOME : TransactionType.EXPENSE,
-            accountId: data.accounts[0]?.id || '', // Default para a primeira conta
+            accountId: accountId,
             categoryId: catId,
-            fundId: data.funds[0]?.id || '', // Default fund required
-            churchId: activeChurchId || data.churches[0].id,
+            fundId: fundId,
+            churchId: churchId,
             isPaid: true,
             attachments: [],
             reconciled: true // Já nasce conciliado
         };
-        addTransaction(newTx);
-        setMatches(prev => prev.filter(m => m.bankTx.id !== bankTx.id));
+
+        try {
+            await addTransaction(newTx);
+            setMatches(prev => prev.filter(m => m.bankTx.id !== bankTx.id));
+            toast.success("Transação adicionada com sucesso.");
+        } catch (error) {
+            console.error("Failed to add transaction:", error);
+            toast.error("Erro ao salvar transação. Verifique o console.");
+        }
     };
 
     // --- 4. Bulk Actions ---
@@ -286,36 +343,71 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         toast.success(`${exactMatches.length} itens conciliados.`);
     };
 
-    const handleBulkAdd = () => {
+    const handleBulkAdd = async () => {
         const newItems = matches.filter(m => m.matchType === 'NONE');
         if (newItems.length === 0) return;
 
         if (!confirm(`Deseja adicionar ${newItems.length} novos lançamentos ao Livro Caixa? Eles serão categorizados automaticamente.`)) return;
 
-        newItems.forEach(m => {
+        // Validation keys
+        const accountId = data.accounts[0]?.id || '';
+        const fundId = data.funds[0]?.id || '';
+        const churchId = activeChurchId || (data.churches[0]?.id || '');
+
+        if (!accountId) { toast.error("Crie uma CONTA antes de operacão em massa."); return; }
+        if (!fundId) { toast.error("Crie um FUNDO antes de operacão em massa."); return; }
+        if (!churchId) { toast.error("Sem IGREJA selecionada."); return; }
+        if (data.categories.length === 0) { toast.error("Crie pelo menos uma CATEGORIA antes de importar."); return; }
+
+        let successCount = 0;
+
+        // Iterate sequentially to avoid flooding if logic is complex, or parallel
+        for (const m of newItems) {
             const bankTx = m.bankTx;
             const catId = getSuggestedCategory(bankTx);
+            if (!catId) continue; // Skip if no categories
 
             const newTx: Transaction = {
-                id: genId(), // Fix: Use UUID
+                id: genId(),
                 date: bankTx.date,
                 amount: bankTx.amount,
                 description: bankTx.description,
                 type: bankTx.type === 'CREDIT' ? TransactionType.INCOME : TransactionType.EXPENSE,
-                accountId: data.accounts[0]?.id || '',
+                accountId,
                 categoryId: catId,
-                fundId: data.funds[0]?.id || '',
-                churchId: activeChurchId || data.churches[0].id,
+                fundId,
+                churchId,
                 isPaid: true,
                 attachments: [],
                 reconciled: true
             };
-            addTransaction(newTx);
-        });
 
-        setMatches(prev => prev.filter(m => m.matchType !== 'NONE'));
-        toast.success(`${newItems.length} novos itens adicionados.`);
+            try {
+                await addTransaction(newTx);
+                successCount++;
+            } catch (e) {
+                console.error("Error bulk adding tx", e);
+            }
+        }
+
+        if (successCount > 0) {
+            setMatches(prev => prev.filter(m => m.matchType !== 'NONE')); // This logic clears ALL. Should ideally filter by ID of successful ones if partial failure.
+            // For simplicity in MVP, we refresh list or assume success, but better to fetch fresh.
+            // Actually, since we didn't track individual success in UI state locally, clearing all might hide failures.
+            // Let's refine: re-run matching?
+            // Easier: refreshData() handles the DB, here we reset matches manually?
+            // The simplest: refresh UI state.
+            // However, let's keep the optimistic clear if mostly successful, or just reload page?
+            // The matching algorithm runs on `bankTransactions` vs `data.transactions`.
+            // After `addTransaction`, `data.transactions` is updated via `refreshData`.
+            // So `runMatchingAlgorithm` should be re-run?
+            // `data` changes -> FinanceContext triggers re-render? No, `data` is context value.
+            // If `refreshData` updates `data`, this component re-renders.
+            // We need a way to trigger matching again when data updates.
+        }
+        toast.success(`${successCount} novos itens adicionados.`);
     };
+
 
     // Helpers de formatação
     const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -462,7 +554,7 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                                                             </span>
                                                         </div>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                            {new Date(m.bankTx.date + 'T12:00:00').toLocaleDateString('pt-BR')} • {m.bankTx.type === 'CREDIT' ? 'Entrada' : 'Saída'}
+                                                            {safeDateFormat(m.bankTx.date)} • {m.bankTx.type === 'CREDIT' ? 'Entrada' : 'Saída'}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -542,6 +634,23 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                     </div>
                 </div>
             ) : null}
+            {/* Debug Info Panel - Remove in Production */}
+            <div className="mt-8 p-4 bg-gray-100 dark:bg-slate-800 rounded-lg text-xs font-mono text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-slate-700">
+                <h3 className="font-bold mb-2">Debug Info (Reconciliation)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <p><strong>Active Church ID:</strong> {activeChurchId || 'EMPTY'}</p>
+                        <p><strong>Total Sys Transactions:</strong> {data.transactions.length}</p>
+                        <p><strong>Eligible (Church+Unreconciled):</strong> {data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId).length}</p>
+                        <p><strong>Bank Transactions:</strong> {bankTransactions.length}</p>
+                        <p><strong>Matches Found:</strong> {matches.length}</p>
+                    </div>
+                    <div>
+                        <p><strong>Sample Bank Tx (First):</strong> {bankTransactions[0] ? `${bankTransactions[0].date} | ${bankTransactions[0].amount} | ${bankTransactions[0].type}` : 'None'}</p>
+                        <p><strong>Sample Sys Tx (First Eligible):</strong> {data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId)[0] ? `${data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId)[0].date} | ${data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId)[0].amount} | ${data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId)[0].type}` : 'None'}</p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

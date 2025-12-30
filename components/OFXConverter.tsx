@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { InputSection } from './InputSection';
 import { ResultSection } from './ResultSection';
 import { convertToOFX } from '../services/geminiService';
@@ -23,7 +24,8 @@ export const OFXConverter: React.FC = () => {
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const messageInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { setPendingImportData, setActiveTab, currentUser } = useFinance();
+  const traverse = useNavigate(); // Add hook
+  const { setPendingImportData, currentUser } = useFinance();
 
   const startProgressSimulation = () => {
     setProgress(0);
@@ -82,7 +84,7 @@ export const OFXConverter: React.FC = () => {
   const handleSendToReconciliation = () => {
     if (state.result) {
       setPendingImportData(state.result);
-      setActiveTab('reconciliation');
+      traverse('/reconciliation');
     }
   };
 

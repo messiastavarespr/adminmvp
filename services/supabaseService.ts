@@ -566,5 +566,76 @@ export const supabaseService = {
         if (options.audit) {
             await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         }
+    },
+
+    // --- Seeding ---
+    seedStandardData: async (churchId: string) => {
+        const genId = () => crypto.randomUUID();
+
+        // 1. Accounts
+        const accounts = [
+            { id: genId(), name: 'Sicoob', initial_balance: 0, church_id: churchId, icon: 'Bank' },
+            { id: genId(), name: 'CredSIS', initial_balance: 0, church_id: churchId, icon: 'Bank' },
+            { id: genId(), name: 'Cora', initial_balance: 0, church_id: churchId, icon: 'Bank' },
+            { id: genId(), name: 'Caixa Interna', initial_balance: 0, church_id: churchId, icon: 'Wallet' },
+        ];
+        await supabase.from('accounts').insert(accounts);
+
+        // 2. Funds
+        const funds = [
+            { id: genId(), name: 'Fundo Geral', type: 'UNRESTRICTED', church_id: churchId, is_system_default: true },
+            { id: genId(), name: 'Construção', type: 'RESTRICTED', church_id: churchId },
+            { id: genId(), name: 'Missões', type: 'RESTRICTED', church_id: churchId },
+            { id: genId(), name: 'Caixa Pequeno', type: 'UNRESTRICTED', church_id: churchId },
+        ];
+        await supabase.from('funds').insert(funds);
+
+        // 3. Categories
+        const categories = [
+            // Receitas
+            { id: genId(), name: 'Dízimos', type: 'INCOME', church_id: churchId, icon: 'TrendingUp' },
+            { id: genId(), name: 'Ofertas de Culto', type: 'INCOME', church_id: churchId, icon: 'TrendingUp' },
+            { id: genId(), name: 'Ofertas EBD', type: 'INCOME', church_id: churchId, icon: 'BookOpen' },
+            { id: genId(), name: 'Ofertas de Missões', type: 'INCOME', church_id: churchId, icon: 'Globe' },
+            { id: genId(), name: 'Doações Diversas', type: 'INCOME', church_id: churchId, icon: 'Heart' },
+            { id: genId(), name: 'Eventos', type: 'INCOME', church_id: churchId, icon: 'Calendar' },
+            // Despesas
+            { id: genId(), name: 'Energia Elétrica', type: 'EXPENSE', church_id: churchId, icon: 'Zap' },
+            { id: genId(), name: 'Água e Esgoto', type: 'EXPENSE', church_id: churchId, icon: 'Droplet' },
+            { id: genId(), name: 'Internet e Telefone', type: 'EXPENSE', church_id: churchId, icon: 'Wifi' },
+            { id: genId(), name: 'Aluguel', type: 'EXPENSE', church_id: churchId, icon: 'Home' },
+            { id: genId(), name: 'Prebendas Pastorais', type: 'EXPENSE', church_id: churchId, icon: 'User' },
+            { id: genId(), name: 'Salários e Encargos', type: 'EXPENSE', church_id: churchId, icon: 'Users' },
+            { id: genId(), name: 'Material de Limpeza', type: 'EXPENSE', church_id: churchId, icon: 'ShoppingBag' },
+            { id: genId(), name: 'Manutenção Predial', type: 'EXPENSE', church_id: churchId, icon: 'Tool' },
+            { id: genId(), name: 'Ceia do Senhor', type: 'EXPENSE', church_id: churchId, icon: 'Coffee' },
+            { id: genId(), name: 'Material EBD', type: 'EXPENSE', church_id: churchId, icon: 'Book' },
+            { id: genId(), name: 'Evangelismo', type: 'EXPENSE', church_id: churchId, icon: 'Megaphone' },
+            { id: genId(), name: 'Combustível', type: 'EXPENSE', church_id: churchId, icon: 'Truck' },
+        ];
+        await supabase.from('categories').insert(categories);
+
+        // 4. Cost Centers
+        const costCenters = [
+            { id: genId(), name: 'Geral / Sede', church_id: churchId },
+            { id: genId(), name: 'Departamento de Jovens', church_id: churchId },
+            { id: genId(), name: 'Departamento Infantil', church_id: churchId },
+            { id: genId(), name: 'Departamento de Mulheres', church_id: churchId },
+            { id: genId(), name: 'Departamento de Varões', church_id: churchId },
+            { id: genId(), name: 'Escola Bíblica', church_id: churchId },
+        ];
+        await supabase.from('cost_centers').insert(costCenters);
+
+        // 5. Asset Categories
+        const assetCategories = [
+            { id: genId(), name: 'Imóveis', church_id: churchId },
+            { id: genId(), name: 'Mobiliário', church_id: churchId },
+            { id: genId(), name: 'Equipamentos de Som e Vídeo', church_id: churchId },
+            { id: genId(), name: 'Instrumentos Musicais', church_id: churchId },
+            { id: genId(), name: 'Veículos', church_id: churchId },
+            { id: genId(), name: 'Equipamentos de Informática', church_id: churchId },
+            { id: genId(), name: 'Utensílios de Cozinha', church_id: churchId },
+        ];
+        await supabase.from('asset_categories').insert(assetCategories);
     }
 };

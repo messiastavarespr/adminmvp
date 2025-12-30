@@ -141,6 +141,35 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
     loadData();
   }, []);
 
+  // Restore Session Logic
+  useEffect(() => {
+    loadData().then(() => {
+      // Only try to restore session after data is loaded (so we have users list)
+      // However, restoring user relies on 'users' being populated.
+      // Let's do a quick check if data.users is populated? 
+      // Actually, loadData awaits everything. 
+      // But we need to access 'data.users' which is updated via setData.
+      // It might not be available in THIS render cycle immediately if we don't depend on data.
+    });
+  }, []);
+
+  // Effect to restore user once data is loaded
+  useEffect(() => {
+    if (data.users.length > 0 && !currentUser) {
+      const storedUserId = localStorage.getItem('mvp_user_id');
+      if (storedUserId) {
+        const foundUser = data.users.find(u => u.id === storedUserId);
+        if (foundUser) {
+          setCurrentUser(foundUser);
+          // Also restore active church if stored, else default to user's church
+          const storedChurchId = localStorage.getItem('mvp_active_church');
+          setActiveChurchId(storedChurchId || foundUser.churchId);
+          console.log("Session restored for:", foundUser.name);
+        }
+      }
+    }
+  }, [data.users]); // Run when users are loaded
+
   const refreshData = () => {
     supabaseService.getData().then(fetchedData => {
       const storedTheme = localStorage.getItem('mvp_theme') as 'light' | 'dark';
@@ -154,6 +183,8 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   const login = (user: User) => {
     setCurrentUser(user);
     setActiveChurchId(user.churchId);
+    localStorage.setItem('mvp_user_id', user.id); // Persist
+    localStorage.setItem('mvp_active_church', user.churchId);
     supabaseService.logAction(user, 'LOGIN', 'SYSTEM', 'Login realizado via Contexto (Supabase)');
   };
 
@@ -162,6 +193,8 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       supabaseService.logAction(currentUser, 'LOGIN', 'SYSTEM', 'Logout realizado');
     }
     setCurrentUser(null);
+    localStorage.removeItem('mvp_user_id'); // Clear
+    localStorage.removeItem('mvp_active_church');
   };
 
   const hashPassword = async (password: string): Promise<string> => {
@@ -287,7 +320,10 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       isLoading,
       login,
       logout,
-      setActiveChurch: setActiveChurchId,
+      setActiveChurch: (id: string) => {
+        setActiveChurchId(id);
+        localStorage.setItem('mvp_active_church', id);
+      },
       refreshData,
       addTransaction,
       updateTransaction,
