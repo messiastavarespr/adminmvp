@@ -26,10 +26,14 @@ const defaultPermissions: UserPermissions = {
 };
 
 const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
-  const { hashPassword, addUser, updateUser, deleteUser } = useFinance();
+  const { hashPassword, addUser, updateUser, deleteUser, currentUser } = useFinance();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const isAdmin = currentUser?.role === UserRole.ADMIN;
+
+  // ... (state definitions remain same)
 
   // Confirmation state
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -166,9 +170,13 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     }
   };
 
-  const filteredUsers = users.filter(u =>
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Start Filter Logic Change
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (isAdmin) return matchesSearch;
+    return u.id === currentUser?.id; // Non-admins only see themselves
+  });
+  // End Filter Logic Change
 
   const getChurchName = (id: string) => churches.find(c => c.id === id)?.name || 'N/A';
 
@@ -182,13 +190,13 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
   };
 
   const PermissionCheckbox = ({ label, pKey }: { label: string, pKey: keyof UserPermissions }) => (
-    <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${permissions[pKey] ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-200 dark:bg-slate-700 dark:border-slate-600'}`}>
+    <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${permissions[pKey] ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-white border-gray-200 dark:bg-slate-700 dark:border-slate-600'} ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <input
         type="checkbox"
         checked={permissions[pKey]}
         onChange={() => togglePermission(pKey)}
         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 dark:border-gray-500"
-        disabled={role === UserRole.ADMIN} // Admin has all permissions forced
+        disabled={!isAdmin} // Only admin can change permissions
       />
       <span className={`text-xs font-semibold ${permissions[pKey] ? 'text-blue-800 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}>{label}</span>
     </label>
@@ -204,17 +212,19 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
             <UsersIcon className="text-blue-600" size={24} /> Gestão de Usuários
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Gerencie quem tem acesso ao sistema e suas permissões detalhadas.
+            {isAdmin ? 'Gerencie quem tem acesso ao sistema e suas permissões.' : 'Gerencie seus dados de acesso.'}
           </p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-          <SearchBox value={searchTerm} onChange={setSearchTerm} />
-          <button
-            onClick={handleAdd}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
-          >
-            <Plus size={18} /> Novo Usuário
-          </button>
+          {isAdmin && <SearchBox value={searchTerm} onChange={setSearchTerm} />}
+          {isAdmin && (
+            <button
+              onClick={handleAdd}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm whitespace-nowrap"
+            >
+              <Plus size={18} /> Novo Usuário
+            </button>
+          )}
         </div>
       </div>
 
@@ -233,9 +243,10 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="Ex: João da Silva"
                   autoFocus
+                  disabled={!isAdmin && !!editingId}
                 />
               </div>
               <div>
@@ -243,7 +254,8 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                 <select
                   value={role}
                   onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!isAdmin && !!editingId}
                 >
                   <option value={UserRole.ADMIN}>Administrador (Acesso Total)</option>
                   <option value={UserRole.TREASURER}>Tesoureiro (Financeiro)</option>
@@ -256,7 +268,8 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                 <select
                   value={churchId}
                   onChange={(e) => setChurchId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!isAdmin && !!editingId}
                 >
                   {churches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -277,8 +290,8 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
               </div>
             </div>
 
-            {/* Permissions Panel */}
-            {role !== UserRole.ADMIN && role !== UserRole.MEMBER && (
+            {/* Permissions Panel - Only show for Admin */}
+            {isAdmin && role !== UserRole.ADMIN && role !== UserRole.MEMBER && (
               <div className="bg-gray-50 dark:bg-slate-700/30 p-5 rounded-xl border border-gray-100 dark:border-slate-700">
                 <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-slate-600">
                   <CheckSquare size={16} className="text-blue-600" /> Permissões de Acesso (Granular)
@@ -322,9 +335,10 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
               <textarea
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="Notas ou observações sobre o usuário..."
                 rows={2}
+                disabled={!isAdmin && !!editingId}
               />
             </div>
 
@@ -340,7 +354,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                 type="submit"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2"
               >
-                <Save size={16} /> Salvar Usuário
+                <Save size={16} /> Salvar {isAdmin ? 'Usuário' : 'Alterações'}
               </button>
             </div>
           </form>
@@ -387,17 +401,19 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                       <button
                         onClick={() => handleEdit(u)}
                         className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                        title="Editar"
+                        title={isAdmin ? "Editar" : "Alterar Senha"}
                       >
-                        <Edit2 size={16} />
+                        {isAdmin ? <Edit2 size={16} /> : <Lock size={16} />}
                       </button>
-                      <button
-                        onClick={() => setDeleteId(u.id)}
-                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setDeleteId(u.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

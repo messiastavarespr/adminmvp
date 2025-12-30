@@ -288,21 +288,21 @@ export const ReceiptGenerator: React.FC = () => {
                             </h3>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Nome da Igreja</label>
-                                <input type="text" value={formData.igreja.nome} onChange={e => handleInputChange('igreja', 'nome', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                <input type="text" value={formData.igreja.nome} onChange={e => handleInputChange('igreja', 'nome', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Cidade</label>
-                                    <input type="text" value={formData.igreja.cidade} onChange={e => handleInputChange('igreja', 'cidade', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                    <input type="text" value={formData.igreja.cidade} onChange={e => handleInputChange('igreja', 'cidade', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Estado</label>
-                                    <input type="text" value={formData.igreja.estado} onChange={e => handleInputChange('igreja', 'estado', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                    <input type="text" value={formData.igreja.estado} onChange={e => handleInputChange('igreja', 'estado', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">CNPJ</label>
-                                <input type="text" value={formData.igreja.cnpj} onChange={e => handleInputChange('igreja', 'cnpj', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                <input type="text" value={formData.igreja.cnpj} onChange={e => handleInputChange('igreja', 'cnpj', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                             </div>
                         </div>
 
@@ -312,20 +312,20 @@ export const ReceiptGenerator: React.FC = () => {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Valor (R$)</label>
-                                    <input type="number" value={formData.pagamento.valor_numerico} onChange={handleValorChange} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2 font-bold text-emerald-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                                    <input type="number" value={formData.pagamento.valor_numerico} onChange={handleValorChange} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2 font-bold text-emerald-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Data</label>
-                                    <input type="date" value={formData.pagamento.data_pagamento} onChange={e => handleInputChange('pagamento', 'data_pagamento', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                    <input type="date" value={formData.pagamento.data_pagamento} onChange={e => handleInputChange('pagamento', 'data_pagamento', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Valor por Extenso</label>
-                                <input type="text" value={formData.pagamento.valor_extenso} onChange={e => handleInputChange('pagamento', 'valor_extenso', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: cem reais" />
+                                <input type="text" value={formData.pagamento.valor_extenso} onChange={e => handleInputChange('pagamento', 'valor_extenso', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: cem reais" />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Forma de Pagamento</label>
-                                <select value={formData.pagamento.forma_pagamento} onChange={e => handleInputChange('pagamento', 'forma_pagamento', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2">
+                                <select value={formData.pagamento.forma_pagamento} onChange={e => handleInputChange('pagamento', 'forma_pagamento', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2">
                                     <option>PIX</option>
                                     <option>Dinheiro</option>
                                     <option>Transferência Bancária</option>
@@ -344,19 +344,19 @@ export const ReceiptGenerator: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Nome Beneficiário (Quem recebeu)</label>
-                                <input type="text" value={formData.beneficiario.nome} onChange={e => handleInputChange('beneficiario', 'nome', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                <input type="text" value={formData.beneficiario.nome} onChange={e => handleInputChange('beneficiario', 'nome', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">CPF/CNPJ</label>
-                                <input type="text" value={formData.beneficiario.cpf_cnpj} onChange={e => handleInputChange('beneficiario', 'cpf_cnpj', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                <input type="text" value={formData.beneficiario.cpf_cnpj} onChange={e => handleInputChange('beneficiario', 'cpf_cnpj', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Função / Cargo</label>
-                                <input type="text" value={formData.beneficiario.funcao_descricao} onChange={e => handleInputChange('beneficiario', 'funcao_descricao', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: Prestador de Serviços" />
+                                <input type="text" value={formData.beneficiario.funcao_descricao} onChange={e => handleInputChange('beneficiario', 'funcao_descricao', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: Prestador de Serviços" />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">Descrição (Referente a que?)</label>
-                                <textarea rows={1} value={formData.descricao} onChange={e => handleRootChange('descricao', e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: pagamento de serviços de jardinagem..." />
+                                <textarea rows={1} value={formData.descricao} onChange={e => handleRootChange('descricao', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: pagamento de serviços de jardinagem..." />
                             </div>
                         </div>
                     </div>

@@ -44,11 +44,10 @@ const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) 
                      </button>
                   </>
                )}
-               {isAdmin && (
-                  <button onClick={() => setActiveTab('USERS')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'USERS' ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
-                     <Users size={16} /> Usuários
-                  </button>
-               )}
+               <button onClick={() => setActiveTab('USERS')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'USERS' ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
+                  <Users size={16} /> Usuários
+               </button>
+
                <button onClick={() => setActiveTab('BACKUP')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'BACKUP' ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
                   <Archive size={16} /> Backup
                </button>
@@ -62,12 +61,12 @@ const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) 
             {activeTab === 'GENERAL' && (
                <>
                   <SettingsGeneral data={data} currentUser={currentUser} />
-                  <SettingsDangerZone />
+                  {isAdmin && <SettingsDangerZone />}
                </>
             )}
 
             {/* OTHER TABS */}
-            {activeTab === 'USERS' && isAdmin && (
+            {activeTab === 'USERS' && (
                <UsersManager users={data.users} churches={data.churches} onUpdate={onDataChange} />
             )}
 
