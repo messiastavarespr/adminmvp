@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { OFXConverter } from './OFXConverter';
 import { ExportData } from './ExportData';
 import { ReceiptGenerator } from './ReceiptGenerator';
-import { FileJson, Download, Wrench, FileText } from './ui/Icons';
+import { Calculator } from './Calculator';
+import { FileJson, Download, Wrench, FileText, Calculator as CalculatorIcon } from './ui/Icons';
 
 import { useFinance } from '../contexts/FinanceContext';
 import { supabaseService } from '../services/supabaseService';
@@ -13,7 +13,7 @@ const simpleToast = (msg: string, type: 'success' | 'error') => {
     alert(`${type === 'success' ? '✅' : '❌'} ${msg}`);
 };
 
-type ToolTab = 'OFX' | 'EXPORT' | 'RECEIPT' | 'SETUP';
+type ToolTab = 'OFX' | 'EXPORT' | 'RECEIPT' | 'SETUP' | 'CALCULATOR';
 
 export const Tools: React.FC = () => {
     const [activeTool, setActiveTool] = useState<ToolTab>('RECEIPT');
@@ -34,9 +34,9 @@ export const Tools: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-900">
+        <div className="flex flex-col bg-gray-50 dark:bg-slate-900">
             {/* HEADER */}
-            <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 p-6">
+            <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 pt-1 pb-6">
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                     <Wrench className="text-blue-600" /> Central de Ferramentas
                 </h1>
@@ -49,6 +49,12 @@ export const Tools: React.FC = () => {
                         className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTool === 'RECEIPT' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
                     >
                         <FileText size={18} /> Gerador de Recibos
+                    </button>
+                    <button
+                        onClick={() => setActiveTool('CALCULATOR')}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTool === 'CALCULATOR' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800'}`}
+                    >
+                        <CalculatorIcon size={18} /> Calculadora
                     </button>
                     <button
                         onClick={() => setActiveTool('EXPORT')}
@@ -72,11 +78,12 @@ export const Tools: React.FC = () => {
             </div>
 
             {/* CONTENT */}
-            <div className="flex-1 overflow-auto p-4 lg:p-8">
+            <div className="p-4 lg:p-8">
                 <div className="max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200">
                     {activeTool === 'OFX' && <OFXConverter />}
                     {activeTool === 'EXPORT' && <ExportData />}
                     {activeTool === 'RECEIPT' && <ReceiptGenerator />}
+                    {activeTool === 'CALCULATOR' && <Calculator />}
                     {activeTool === 'SETUP' && (
                         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
                             <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Configuração Inicial e Dados Padrão</h2>

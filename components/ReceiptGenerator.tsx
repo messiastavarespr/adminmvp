@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFinance } from '../contexts/FinanceContext';
 import { FileText, Printer, CheckCircle, Copy, Download, Building2, Eye, X } from './ui/Icons';
+import { Autocomplete } from './ui/Autocomplete';
 import jsPDF from 'jspdf';
 import { numberToWords } from '../utils/numberToWords';
 
@@ -343,8 +344,30 @@ export const ReceiptGenerator: React.FC = () => {
                         <h3 className="font-semibold text-slate-900 dark:text-white border-b pb-2 border-slate-100 dark:border-slate-700">Beneficiário e Motivo</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Nome Beneficiário (Quem recebeu)</label>
-                                <input type="text" value={formData.beneficiario.nome} onChange={e => handleInputChange('beneficiario', 'nome', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
+                                <Autocomplete
+                                    label="Nome Beneficiário (Quem recebeu)"
+                                    value={formData.beneficiario.nome}
+                                    onChange={val => handleInputChange('beneficiario', 'nome', val)}
+                                    items={data.members || []}
+                                    itemKey="name"
+                                    onSelect={(member: any) => {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            beneficiario: {
+                                                ...prev.beneficiario,
+                                                nome: member.name,
+                                                cpf_cnpj: member.document || '',
+                                                funcao_descricao: member.type === 'SUPPLIER' ? 'Fornecedor' : (member.type === 'MEMBER' ? 'Membro' : '')
+                                            }
+                                        }));
+                                    }}
+                                    renderItem={(item: any) => (
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">{item.name}</span>
+                                            <span className="text-xs text-slate-500">{item.document ? `CPF/CNPJ: ${item.document}` : 'Sem documento'} ({item.type === 'SUPPLIER' ? 'Fornecedor' : 'Outro'})</span>
+                                        </div>
+                                    )}
+                                />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-500 mb-1">CPF/CNPJ</label>
@@ -355,8 +378,15 @@ export const ReceiptGenerator: React.FC = () => {
                                 <input type="text" value={formData.beneficiario.funcao_descricao} onChange={e => handleInputChange('beneficiario', 'funcao_descricao', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: Prestador de Serviços" />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Descrição (Referente a que?)</label>
-                                <textarea rows={1} value={formData.descricao} onChange={e => handleRootChange('descricao', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: pagamento de serviços de jardinagem..." />
+                                <Autocomplete
+                                    label="Motivo / Descrição"
+                                    value={formData.descricao}
+                                    onChange={val => handleRootChange('descricao', val)}
+                                    items={data.categories || []}
+                                    itemKey="name"
+                                    placeholder="Ex: pagamento de serviços..."
+                                    onSelect={(cat: any) => handleRootChange('descricao', cat.name)}
+                                />
                             </div>
                         </div>
                     </div>
