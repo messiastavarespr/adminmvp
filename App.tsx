@@ -12,6 +12,7 @@ import Sidebar from './components/Sidebar';
 import Toast from './components/ui/Toast';
 import TransactionModal from './components/TransactionModal';
 import ScheduleModal from './components/ScheduleModal';
+import { MaintenanceScreen } from './components/MaintenanceScreen';
 
 // Lazy loaded components (Code Splitting)
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -75,6 +76,39 @@ function AppContent() {
 
   const [isScheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduledTransaction | null>(null);
+
+  // --- Maintenance Mode Logic ---
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false); // DISABLED - Fixing Access
+
+  const [isAdminBypass, setIsAdminBypass] = useState(() => {
+    // 1. Check LocalStorage first (Fastest)
+    if (typeof window !== 'undefined' && localStorage.getItem('maintenance_bypass') === 'true') {
+      return true;
+    }
+    // 2. Check URL synchronously (Fail-safe)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('admin') === 'messias') {
+        localStorage.setItem('maintenance_bypass', 'true');
+        return true;
+      }
+    }
+    return false;
+  });
+
+  // Clean URL Effect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === 'messias') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  const handleManualUnlock = () => {
+    localStorage.setItem('maintenance_bypass', 'true');
+    setIsAdminBypass(true);
+    // Removed reload to allow immediate React state update
+  };
 
   const [modalInitialType, setModalInitialType] = useState<TransactionType>(TransactionType.INCOME);
 
@@ -198,6 +232,10 @@ function AppContent() {
   const currentChurch = data.churches.find(c => c.id === targetChurchId) || data.churches[0];
 
   const { isLoading } = useFinance();
+
+  if (isMaintenanceMode && !isAdminBypass) {
+    return <MaintenanceScreen />;
+  }
 
   if (isLoading) {
     return (

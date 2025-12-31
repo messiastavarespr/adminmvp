@@ -45,33 +45,78 @@ export default function ChartOfAccounts() {
             setFormData(item);
         } else {
             setEditingItem(null);
+
+            // Auto-generate code
+            const list = type === 'REVENUE' ? revenues : expenses;
+            let nextCode = '';
+
+            if (list.length > 0) {
+                const lastCode = list[list.length - 1].code;
+                const parts = lastCode.split('.');
+                const lastPart = parts[parts.length - 1];
+                const num = parseInt(lastPart);
+
+                if (!isNaN(num)) {
+                    // Increment and keep padding (e.g. 01 -> 02)
+                    parts[parts.length - 1] = (num + 1).toString().padStart(lastPart.length, '0');
+                    nextCode = parts.join('.');
+                } else {
+                    nextCode = lastCode + '.1';
+                }
+            } else {
+                // Defauls
+                nextCode = type === 'REVENUE' ? '1.01' : '2.01';
+            }
+
             setFormData({
                 type: type,
-                code: '',
+                code: nextCode,
                 name: '',
                 relatedCategoryId: '',
                 churchId: targetChurchId,
-                order: (type === 'REVENUE' ? revenues.length : expenses.length) // Append to end
+                order: list.length // Append to end
             });
         }
         setIsModalOpen(true);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formData.name || !formData.code) return; // Basic validation
 
-        // Ensure ID is present for update, or generated/handled by service for add
-        const payload = { ...formData, churchId: targetChurchId } as AccountingAccount;
-
-        if (editingItem && editingItem.id) {
-            updateAccountingAccount(payload);
-        } else {
-            // Generate ID here if needed or let service. 
-            // Service expects ID for types usually.
-            const newId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
-            addAccountingAccount({ ...payload, id: newId });
+        if (!targetChurchId) {
+            alert('Erro: ID da Igreja não encontrado. Recarregue a página.');
+            return;
         }
-        setIsModalOpen(false);
+
+        // Ensure ID is present for update, or generated/handled by service for add
+        // Sanitize payload: convert empty strings to null for optional UUIDs to avoid DB error
+        const cleanFormData = { ...formData };
+        if (cleanFormData.relatedCategoryId === '') {
+            cleanFormData.relatedCategoryId = null as any;
+            // TS hack or just leave it undefined if interface allows. 
+            // Best to use undefined if we want mapToSnake to skip or handle?
+            // Usually Supabase overrides undefined, but null is explicit.
+            // Let's use null but cast to avoid strict type issues if strict is on.
+            // Actually, simply deleting keys or setting to undefined is safer if mapToSnake preserves it.
+            delete cleanFormData.relatedCategoryId;
+        }
+
+        const payload = { ...cleanFormData, churchId: targetChurchId } as AccountingAccount;
+
+        try {
+            if (editingItem && editingItem.id) {
+                await updateAccountingAccount(payload);
+            } else {
+                // Generate ID here if needed or let service. 
+                // Service expects ID for types usually.
+                const newId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
+                await addAccountingAccount({ ...payload, id: newId });
+            }
+            setIsModalOpen(false);
+        } catch (error: any) {
+            console.error('Failed to save account:', error);
+            alert(`Erro ao salvar: ${error.message || 'Verifique o console'}`);
+        }
     };
 
     const handleDelete = (id: string) => {

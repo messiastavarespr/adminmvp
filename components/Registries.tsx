@@ -237,9 +237,9 @@ export default function Registries() {
             }
 
             resetForm();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro ao salvar:", error);
-            alert("Erro ao salvar o registro.");
+            alert(`Erro ao salvar o registro: ${error.message || 'Verifique o console.'}`);
         }
     };
 
