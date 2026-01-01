@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Transaction, TransactionType, Category, Account, Member, CostCenter, Fund } from '../types';
-import { X, Plus, Minus, UserCheck, Upload, Paperclip, Trash2, Layers, ArrowLeftRight, Edit2, AlertTriangle, CheckCircle, Target } from './ui/Icons';
+import { X, Plus, Minus, UserCheck, Upload, Paperclip, Trash2, Layers, ArrowLeftRight, Edit2, AlertTriangle, CheckCircle, Target, HelpCircle } from './ui/Icons';
 import ErrorMessage from './ui/ErrorMessage';
+import { Tooltip } from './ui/Tooltip';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -44,8 +44,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Transfer Fields
   const [toAccountId, setToAccountId] = useState('');
-
-  // Removed duplicate fileInputRef
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
@@ -305,6 +303,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           <div className="bg-purple-50 dark:bg-purple-900/10 p-3 rounded-lg border border-purple-100 dark:border-purple-800/50">
             <label className="block text-xs font-bold text-purple-700 dark:text-purple-300 mb-1 flex items-center gap-1">
               <Target size={12} /> Fundo / Projeto Destino *
+              <Tooltip content="Recurso financeiro específico (ex: Missões, Construção) ou fundo geral da igreja.">
+                <HelpCircle size={14} className="text-gray-400 hover:text-blue-500 cursor-help" />
+              </Tooltip>
             </label>
             <select
               value={fundId}
@@ -352,7 +353,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   <ErrorMessage message={errors.categoryId} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1"><Layers size={12} /> Centro de Custo</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                    <Layers size={12} /> Centro de Custo
+                    <Tooltip content="Departamento ou área que gerou a despesa/receita (ex: Ministério Infantil, Louvor).">
+                      <HelpCircle size={14} className="text-gray-400 hover:text-blue-500 cursor-help" />
+                    </Tooltip>
+                  </label>
                   <select value={costCenterId} onChange={(e) => setCostCenterId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none">
                     <option value="">Geral</option>
                     {costCenters.map(cc => <option key={cc.id} value={cc.id}>{cc.name}</option>)}

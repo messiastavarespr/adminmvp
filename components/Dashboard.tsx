@@ -318,7 +318,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     <div className="space-y-8 pb-8 animate-in fade-in duration-500 max-w-screen-2xl mx-auto">
 
       {/* Header & Filter */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+      <div id="dashboard-header" className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
             Visão Geral
@@ -342,7 +342,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
       </div>
 
       {/* KPI Cards Grid - IMPROVED COLORS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="kpi-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
         {/* Entradas - Emerald Green Gradient */}
         <div className="bg-gradient-to-br from-emerald-100/80 to-white dark:from-emerald-900/40 dark:to-slate-800 p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(16,185,129,0.1)] border border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-lg hover:border-emerald-300 dark:hover:border-emerald-600 transition-all hover:-translate-y-1 duration-300 relative overflow-hidden group">
@@ -397,7 +397,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
 
       {/* Action Buttons */}
       {canEdit && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div id="action-buttons" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button onClick={() => onNewTransaction(TransactionType.INCOME)} className="group relative overflow-hidden flex items-center justify-between p-5 bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-900/10 transition-all active:scale-[0.99] border border-emerald-400/20"><div className="flex flex-col items-start relative z-10"><span className="text-emerald-100 text-[10px] font-bold uppercase tracking-wider mb-1">Nova</span><span className="font-bold text-lg">Entrada</span></div><div className="bg-white/20 p-2.5 rounded-xl relative z-10 group-hover:rotate-12 transition-transform"><Plus size={24} /></div></button>
           <button onClick={() => onNewTransaction(TransactionType.EXPENSE)} className="group relative overflow-hidden flex items-center justify-between p-5 bg-gradient-to-br from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-2xl shadow-lg shadow-rose-900/10 transition-all active:scale-[0.99] border border-rose-400/20"><div className="flex flex-col items-start relative z-10"><span className="text-rose-100 text-[10px] font-bold uppercase tracking-wider mb-1">Nova</span><span className="font-bold text-lg">Saída</span></div><div className="bg-white/20 p-2.5 rounded-xl relative z-10 group-hover:rotate-12 transition-transform"><Minus size={24} /></div></button>
           <button onClick={() => onNewTransaction(TransactionType.TRANSFER)} className="group relative overflow-hidden flex items-center justify-between p-5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl shadow-lg shadow-blue-900/10 transition-all active:scale-[0.99] border border-blue-400/20"><div className="flex flex-col items-start relative z-10"><span className="text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1">Nova</span><span className="font-bold text-lg">Transferência</span></div><div className="bg-white/20 p-2.5 rounded-xl relative z-10 group-hover:rotate-12 transition-transform"><ArrowLeftRight size={24} /></div></button>

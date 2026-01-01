@@ -94,7 +94,7 @@ import {
   Zap,
   ChevronUp,
   ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt,
-  LayoutList, LayoutGrid, Tag, Cake, Package
+  LayoutList, LayoutGrid, Tag, Cake, Package, HelpCircle
 } from 'lucide-react';
 
 export const ChurchCross = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -205,5 +205,5 @@ export {
   Zap,
   ChevronUp,
   ShoppingBag, Utensils, Home, Car, Lightbulb, Wifi, Gift, GraduationCap, Plane, Music, Film, Gamepad2, Coffee, Shirt,
-  Wrench, Loader2, DollarSign, LayoutList, LayoutGrid, Tag, Cake, Package
+  Wrench, Loader2, DollarSign, LayoutList, LayoutGrid, Tag, Cake, Package, HelpCircle
 };

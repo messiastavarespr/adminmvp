@@ -13,6 +13,7 @@ import Toast from './components/ui/Toast';
 import TransactionModal from './components/TransactionModal';
 import ScheduleModal from './components/ScheduleModal';
 import { MaintenanceScreen } from './components/MaintenanceScreen';
+import { OnboardingTour } from './components/OnboardingTour';
 
 // Lazy loaded components (Code Splitting)
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
@@ -265,6 +266,7 @@ function AppContent() {
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
       <Toast notifications={data.notifications} onDismiss={() => { }} />
+      <OnboardingTour />
 
       {isSidebarOpen && (
         <div

@@ -150,7 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Menu Items */}
-        <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto custom-scrollbar">
+        <nav id="sidebar-nav" className="flex-1 px-4 py-4 space-y-4 overflow-y-auto custom-scrollbar">
           {menuSections.map((section, idx) => {
             const isExpanded = expandedSections.includes(section.title);
             const hasActiveChild = section.items.some(item => item.path === location.pathname);
