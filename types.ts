@@ -16,6 +16,7 @@ export enum UserRole {
   MASTER = 'MASTER',
   ADMIN = 'ADMIN',
   TREASURER = 'TREASURER',
+  SECRETARY = 'SECRETARY',
   PASTOR = 'PASTOR',
   MEMBER = 'MEMBER'
 }
@@ -114,6 +115,29 @@ export interface Member {
   notes?: string;
   status?: 'ACTIVE' | 'INACTIVE' | 'OBSERVATION';
   tags?: string[];
+
+  // Secretariat Fields - Personal
+  nationality?: string;
+  naturalness?: string;
+  profession?: string;
+  educationLevel?: string;
+  fatherName?: string;
+  motherName?: string;
+  photoUrl?: string;
+  documentIssuer?: string;
+
+  // Secretariat Fields - Ecclesiastical
+  conversionDate?: string;
+  baptismHolySpirit?: boolean;
+  previousChurch?: string;
+  entryMethod?: string;
+  exitDate?: string;
+  exitReason?: string;
+
+  // Secretariat Fields - Family
+  spouseId?: string;
+  weddingDate?: string;
+  children?: string; // JSON string or text description for now
 }
 
 export interface AssetCategory {

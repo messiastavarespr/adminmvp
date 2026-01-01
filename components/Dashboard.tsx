@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { Transaction, TransactionType, ScheduledTransaction, UserRole, Category, Budget, Account, Fund } from '../types';
+import { Transaction, TransactionType, ScheduledTransaction, UserRole, Category, Budget, Account, Fund, Member } from '../types';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend, AreaChart, Area, ComposedChart, Line, ReferenceLine
 } from 'recharts';
-import { Plus, Minus, BarChart3, AlertTriangle, CalendarClock, Filter, PieChart as PieIcon, X, TrendingUp, TrendingDown, Wallet, ArrowRight, ArrowLeftRight, CheckCircle, Landmark, Activity, List, Target, ChevronDown, Eye, EyeOff } from './ui/Icons';
+import { Plus, Minus, BarChart3, AlertTriangle, CalendarClock, Filter, PieChart as PieIcon, X, TrendingUp, TrendingDown, Wallet, ArrowRight, ArrowLeftRight, CheckCircle, Landmark, Activity, List, Target, ChevronDown, Eye, EyeOff, Users, Briefcase, UserPlus, Cake } from './ui/Icons';
 import { ICON_MAP } from './ui/IconMap';
 
 interface DashboardProps {
@@ -17,13 +17,16 @@ interface DashboardProps {
   funds?: Fund[];
   onNewTransaction: (type: TransactionType) => void;
   userRole: UserRole;
+  userRole: UserRole;
+  members?: Member[];
+  systemMode?: 'FINANCE' | 'SECRETARY';
 }
 
 type TimeRange = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
 
-const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categories, budgets, accounts, funds = [], onNewTransaction, userRole }) => {
+const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categories, budgets, accounts, funds = [], onNewTransaction, userRole, members = [], systemMode = 'FINANCE' }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('MONTHLY');
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -319,6 +322,157 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     }
     return null;
   };
+
+  // --- SECRETARY VIEW ---
+  // Render Secretary Dashboard if user IS Secretary OR if System Mode is SECRETARY (for Master/Admin access)
+  if (userRole === UserRole.SECRETARY || systemMode === 'SECRETARY') {
+    const activeMembers = members.filter(m => m.type === 'MEMBER' && m.status !== 'INACTIVE');
+    const visitors = members.filter(m => m.type === 'VISITOR');
+    const suppliers = members.filter(m => m.type === 'SUPPLIER');
+
+    // Birthdays this month
+    const currentMonth = new Date().getMonth();
+    const birthdays = members.filter(m => m.birthDate && new Date(m.birthDate).getMonth() === currentMonth && m.status !== 'INACTIVE');
+
+    // New Members (Last 30 days)
+    // Assuming createdAt is not available, we can use conversionDate or just skip for MVP.
+    // Let's use filter by recent IDs if sequential or just stick to total counts + specific lists.
+    // For now: Total counts are most important.
+
+    return (
+      <div className="space-y-8 pb-8 animate-in fade-in duration-500 max-w-screen-2xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
+              Painel da Secretaria
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm font-medium">
+              Visão geral de membros, visitantes e estatísticas.
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Members */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-between relative overflow-hidden group">
+            <div className="absolute right-0 top-0 h-full w-1 bg-blue-500"></div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total de Membros</p>
+              <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{activeMembers.length}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Users size={24} />
+            </div>
+          </div>
+
+          {/* Total Visitors */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-between relative overflow-hidden group">
+            <div className="absolute right-0 top-0 h-full w-1 bg-amber-500"></div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Visitantes</p>
+              <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{visitors.length}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <UserPlus size={24} />
+            </div>
+          </div>
+
+          {/* Suppliers */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-between relative overflow-hidden group">
+            <div className="absolute right-0 top-0 h-full w-1 bg-slate-500"></div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Fornecedores</p>
+              <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{suppliers.length}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400">
+              <Briefcase size={24} />
+            </div>
+          </div>
+
+          {/* Birthdays */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-between relative overflow-hidden group">
+            <div className="absolute right-0 top-0 h-full w-1 bg-pink-500"></div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Aniversariantes (Mês)</p>
+              <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{birthdays.length}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center text-pink-600 dark:text-pink-400">
+              <Cake size={24} />
+            </div>
+          </div>
+        </div>
+
+        {/* Birthday List Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Cake size={20} className="text-pink-500" />
+                Aniversariantes de {new Date().toLocaleDateString('pt-BR', { month: 'long' })}
+              </h3>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-slate-700 max-h-[400px] overflow-y-auto">
+              {birthdays.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm">Nenhum aniversariante este mês.</div>
+              ) : (
+                birthdays.sort((a, b) => {
+                  const dayA = new Date(a.birthDate!).getDate();
+                  const dayB = new Date(b.birthDate!).getDate();
+                  return dayA - dayB;
+                }).map(m => (
+                  <div key={m.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-gray-500 font-bold text-xs">
+                        {m.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800 dark:text-white">{m.name}</p>
+                        <p className="text-xs text-gray-500 uppercase">{m.type === 'MEMBER' ? 'Membro' : 'Visitante'}</p>
+                      </div>
+                    </div>
+                    <div className="bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400 px-3 py-1 rounded-lg text-sm font-bold">
+                      Dia {new Date(m.birthDate!).getDate()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Quick Actions / Info */}
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg text-white p-8 flex flex-col justify-between">
+            <div>
+              <h3 className="text-2xl font-bold mb-2">Bem-vindo(a) à Secretaria</h3>
+              <p className="opacity-80 text-sm leading-relaxed mb-6">
+                Aqui você pode gerenciar todo o cadastro de membros, visitantes e fornecedores da igreja.
+                Mantenha os dados atualizados para garantir uma boa comunicação e organização.
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
+                  <Users size={20} className="text-blue-200" />
+                  <div>
+                    <p className="font-bold">Cadastro Completo</p>
+                    <p className="text-xs opacity-70">Dados pessoais, eclesiásticos e familiares</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
+                  <Activity size={20} className="text-blue-200" />
+                  <div>
+                    <p className="font-bold">Histórico</p>
+                    <p className="text-xs opacity-70">Acompanhe a jornada dos membros</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-8 animate-in fade-in duration-500 max-w-screen-2xl mx-auto">

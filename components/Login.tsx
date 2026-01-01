@@ -7,7 +7,7 @@ import { useFinance } from '../contexts/FinanceContext';
 
 interface LoginProps {
   users: User[];
-  onLogin: (user: User) => void;
+  onLogin: (user: User, mode: 'FINANCE' | 'SECRETARY') => void;
   logoUrl?: string;
 }
 
@@ -23,6 +23,9 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
   const [error, setError] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Login Mode State: 'FINANCE' | 'SECRETARY'
+  const [loginMode, setLoginMode] = useState<'FINANCE' | 'SECRETARY'>('FINANCE');
 
   // Local state for Logo to allow immediate update on paste
   const [currentLogo, setCurrentLogo] = useState(logoUrl);
@@ -84,7 +87,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
 
       // --- MASTER KEY OVERRIDE ---
       if ((user.name === 'Messias' || user.role === UserRole.ADMIN) && trimmedPassword === '213465') {
-        onLogin(user); // App.tsx handles login logic
+        onLogin(user, loginMode); // App.tsx handles login logic
         return;
       }
 
@@ -92,7 +95,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
       if (user.password) {
         const isValid = await verifyPassword(trimmedPassword, user.password);
         if (isValid) {
-          onLogin(user);
+          onLogin(user, loginMode);
         } else {
           setError('Senha incorreta.');
           setIsChecking(false);
@@ -101,7 +104,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
         // Fallback for legacy users
         const isValid = await verifyPassword(trimmedPassword, '9250e222c4c71f0c58d4c54b50a880a3127c694c7b1559865d6c2d176903f89c');
         if (isValid) {
-          onLogin(user);
+          onLogin(user, loginMode);
         } else {
           setError('Senha incorreta.');
           setIsChecking(false);
@@ -135,10 +138,25 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
 
   const selectedUser = users.find(u => u.id === selectedUserId);
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.role === UserRole.ADMIN ? 'Admin' : user.role === UserRole.TREASURER ? 'Tesoureiro' : user.role === UserRole.PASTOR ? 'Pastor' : 'Membro').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    // 1. Search Term
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.role === UserRole.ADMIN ? 'Admin' : user.role === UserRole.TREASURER ? 'Tesoureiro' : user.role === UserRole.PASTOR ? 'Pastor' : 'Membro').toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    // 2. Mode Filtering
+    if (loginMode === 'FINANCE') {
+      // Hide Secretary from Finance Login? Or just show all except maybe strictly secretary stuff if we want separation?
+      // Let's show relevant roles.
+      // Finance: Master, Admin, Treasurer, Pastor, Member (Portal)
+      return user.role !== UserRole.SECRETARY;
+    } else {
+      // Secretary: Master, Admin, Secretary, Pastor
+      // Hide Treasurer and Member (unless Members can access Secretary portal? Probably not yet)
+      return [UserRole.MASTER, UserRole.ADMIN, UserRole.SECRETARY, UserRole.PASTOR].includes(user.role);
+    }
+  });
 
   const handleSelect = (id: string) => {
     setSelectedUserId(id);
@@ -189,10 +207,30 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
 
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight flex items-center gap-2">
-              MVPFin <ChurchCross className="text-blue-600" size={24} />
+              {loginMode === 'FINANCE' ? 'MVPFin' : 'MVPSec'} <ChurchCross className="text-blue-600" size={24} />
             </h1>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Gestão financeira da MVP</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
+            {loginMode === 'FINANCE' ? 'Gestão Financeira da MVP' : 'Gestão de Secretaria da MVP'}
+          </p>
+        </div>
+
+        {/* System Toggle */}
+        <div className="flex p-1 bg-gray-100 dark:bg-slate-700 rounded-xl mb-6">
+          <button
+            type="button"
+            onClick={() => { setLoginMode('FINANCE'); setSelectedUserId(''); }}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginMode === 'FINANCE' ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Financeiro
+          </button>
+          <button
+            type="button"
+            onClick={() => { setLoginMode('SECRETARY'); setSelectedUserId(''); }}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginMode === 'SECRETARY' ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Secretaria
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

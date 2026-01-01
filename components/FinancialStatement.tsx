@@ -1,11 +1,13 @@
-
 import React, { useState, useMemo } from 'react';
-import { useFinance } from '../contexts/FinanceContext';
-import { TransactionType } from '../types';
-import { Printer, Calendar } from './ui/Icons';
+import { AppData, TransactionType } from '../types';
+import { Printer } from './ui/Icons';
 
-export const FinancialStatement: React.FC = () => {
-    const { data } = useFinance();
+interface FinancialStatementProps {
+    data: AppData;
+}
+
+export const FinancialStatement: React.FC<FinancialStatementProps> = ({ data }) => {
+    // const { data } = useFinance(); // Removed hook usage
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 

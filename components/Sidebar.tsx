@@ -30,6 +30,7 @@ import { AppView } from '../types';
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  systemMode?: 'FINANCE' | 'SECRETARY';
 }
 
 interface SidebarItemProps {
@@ -58,7 +59,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ to, icon: Icon, label, onClic
   );
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, systemMode = 'FINANCE' }) => {
   const { data, currentUser, logout, toggleTheme } = useFinance();
   const location = useLocation();
 
@@ -68,7 +69,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const currentChurch = data.churches.find(c => c.id === currentUser?.churchId) || data.churches[0];
   const sidebarLogo = currentChurch?.logo;
 
-  const menuSections: { title: string; icon?: React.ElementType; items: { path: string; label: string; icon: React.ElementType }[] }[] = [
+  const userRole = currentUser?.role;
+
+  const rawMenuSections: { title: string; icon?: React.ElementType; items: { path: string; label: string; icon: React.ElementType; roles?: string[] }[] }[] = [
     {
       title: 'Principal',
       items: [
@@ -89,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       title: 'Cadastros',
       items: [
         { path: '/members', label: 'Pessoas', icon: UserCheck },
-        { path: '/registries', label: 'Categorias & Contas', icon: Database },
+        { path: '/registries', label: 'Categorias & Contas', icon: Database, roles: ['MASTER', 'ADMIN', 'TREASURER', 'PASTOR'] },
       ]
     },
     {
@@ -103,6 +106,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   ];
 
+  // Filter Menus based on Role
+  const menuSections = rawMenuSections.map(section => {
+    // If Secretary Role OR Secretary Mode (for Master/Admin accessing Secretary system)
+    // Hide Financeiro and Gestão entirely
+    if (userRole === 'SECRETARY' || systemMode === 'SECRETARY') {
+      if (section.title === 'Financeiro' || section.title === 'Gestão') return null;
+    }
+
+    const filteredItems = section.items.filter(item => {
+      if (item.roles && userRole && !item.roles.includes(userRole)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (filteredItems.length === 0) return null;
+
+    return { ...section, items: filteredItems };
+  }).filter(Boolean) as typeof rawMenuSections;
+
+
   // Auto-expand the section containing the active tab on mount or tab change
   useEffect(() => {
     const currentPath = location.pathname;
@@ -113,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     if (activeSection && !expandedSections.includes(activeSection.title)) {
       setExpandedSections(prev => [...prev, activeSection.title]);
     }
-  }, [location.pathname]);
+  }, [location.pathname, menuSections]); // Added menuSections dependency to be safe
 
   const toggleSection = (title: string) => {
     setExpandedSections(prev =>
@@ -121,6 +145,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         ? prev.filter(t => t !== title)
         : [...prev, title]
     );
+  };
+
+  const getRoleLabel = (role?: string) => {
+    switch (role) {
+      case 'MASTER': return 'Master';
+      case 'ADMIN': return 'Administrador';
+      case 'TREASURER': return 'Tesoureiro';
+      case 'SECRETARY': return 'Secretaria';
+      case 'PASTOR': return 'Pastor';
+      case 'MEMBER': return 'Membro';
+      default: return 'Usuário';
+    }
   };
 
   return (
@@ -140,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           )}
           <div>
             <h1 className="text-xl font-bold text-gray-800 dark:text-white leading-tight flex items-center gap-1">
-              MVPFin <ChurchCross className="text-blue-600" size={16} />
+              {systemMode === 'SECRETARY' ? 'MVPSec' : 'MVPFin'} <ChurchCross className="text-blue-600" size={16} />
             </h1>
             <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">v2.1 Router</span>
           </div>
@@ -203,7 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{currentUser?.name}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {currentUser?.role === 'ADMIN' ? 'Admin' : 'Tesoureiro'}
+                {getRoleLabel(currentUser?.role)}
               </p>
             </div>
           </div>

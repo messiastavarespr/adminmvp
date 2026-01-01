@@ -75,6 +75,14 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
         viewAuditLog: false, performBackup: true, performRestore: false
       };
     }
+    if (r === UserRole.SECRETARY) {
+      return {
+        manageCategories: true, manageAccounts: false, manageCostCenters: false,
+        manageBudgets: false, manageChurches: false, manageUsers: false,
+        manageFunds: false,
+        viewAuditLog: false, performBackup: false, performRestore: false
+      };
+    }
     return defaultPermissions;
   };
 
@@ -180,9 +188,15 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
 
   const handleDelete = async () => {
     if (deleteId) {
-      await deleteUser(deleteId);
-      onUpdate();
-      setDeleteId(null);
+      try {
+        await deleteUser(deleteId);
+        onUpdate();
+        setDeleteId(null);
+        alert('Usuário excluído com sucesso!');
+      } catch (error: any) {
+        console.error("Erro ao excluir usuário:", error);
+        alert(`Erro ao excluir usuário: ${error.message || error.toString()}. \n\nVerifique se o usuário possui registros vinculados (como logs ou transações) que impedem a exclusão.`);
+      }
     }
   };
 
@@ -201,6 +215,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
       case UserRole.MASTER: return <span className="bg-slate-800 text-white dark:bg-black dark:text-gray-200 px-2 py-0.5 rounded text-xs font-bold border border-slate-700 dark:border-gray-700">Master</span>;
       case UserRole.ADMIN: return <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded text-xs font-bold border border-red-200 dark:border-red-800">Admin</span>;
       case UserRole.PASTOR: return <span className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 px-2 py-0.5 rounded text-xs font-bold border border-purple-200 dark:border-purple-800">Pastor</span>;
+      case UserRole.SECRETARY: return <span className="bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 px-2 py-0.5 rounded text-xs font-bold border border-teal-200 dark:border-teal-800">Secretaria</span>;
       case UserRole.TREASURER: return <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded text-xs font-bold border border-blue-200 dark:border-blue-800">Tesoureiro</span>;
       case UserRole.MEMBER: return <span className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded text-xs font-bold border border-gray-200 dark:border-gray-600">Membro</span>;
     }
@@ -276,6 +291,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                 >
                   {isMaster && <option value={UserRole.MASTER}>Master (Sistema & Config Avançada)</option>}
                   <option value={UserRole.ADMIN}>Administrador (Acesso Total)</option>
+                  <option value={UserRole.SECRETARY}>Secretaria (Membros & Cadastros)</option>
                   <option value={UserRole.TREASURER}>Tesoureiro (Financeiro)</option>
                   <option value={UserRole.PASTOR}>Pastor (Visualização/Relatórios)</option>
                   <option value={UserRole.MEMBER}>Membro (Apenas seus dados)</option>

@@ -720,7 +720,7 @@ const Reports: React.FC<ReportsProps> = ({ data }) => {
 
         {activeTab === 'accounting' && <AccountingReports data={data} />}
 
-        {activeTab === 'statement' && <FinancialStatement />}
+        {activeTab === 'statement' && <FinancialStatement data={data} />}
 
         {activeTab === 'audit' && <AuditLogViewer logs={data.auditLogs} />}
 

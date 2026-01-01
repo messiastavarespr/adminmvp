@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Member, UserRole } from '../types';
 import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter } from './ui/Icons';
@@ -8,6 +7,7 @@ import SearchBox from './ui/SearchBox';
 import MemberDetailsModal from './MemberDetailsModal';
 import ErrorMessage from './ui/ErrorMessage';
 import ImportMembersModal from './ImportMembersModal';
+import MemberForm from './MemberForm';
 
 interface MembersProps {
   members: Member[];
@@ -17,7 +17,7 @@ interface MembersProps {
 }
 
 const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentChurchId }) => {
-  const { addMember, updateMember, deleteMember } = useFinance();
+  const { deleteMember, refreshData } = useFinance();
   const [activeTab, setActiveTab] = useState<'MEMBERS' | 'SUPPLIERS'>('MEMBERS');
   const [viewMode, setViewMode] = useState<'GRID' | 'TABLE'>('GRID');
 
@@ -29,37 +29,12 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const { refreshData } = useFinance();
 
   // Form State
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
 
-  // Common Fields
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
-  const [addressNumber, setAddressNumber] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [type, setType] = useState<Member['type']>('MEMBER');
-
-  // Member Specific
-  const [birthDate, setBirthDate] = useState('');
-  const [baptismDate, setBaptismDate] = useState('');
-  const [maritalStatus, setMaritalStatus] = useState('');
-  const [gender, setGender] = useState('');
-  const [rg, setRg] = useState('');
-  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE' | 'OBSERVATION'>('ACTIVE');
-  const [tagsInput, setTagsInput] = useState('');
-
-  // Supplier Specific
-  const [document, setDocument] = useState(''); // CPF/CNPJ
-  const [notes, setNotes] = useState('');
-
-  const canEdit = userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
+  const canEdit = userRole === UserRole.MASTER || userRole === UserRole.ADMIN || userRole === UserRole.TREASURER || userRole === UserRole.PASTOR || userRole === UserRole.SECRETARY;
 
   // Filter Logic
   const displayedMembers = members.filter(m => {
@@ -94,112 +69,12 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   });
 
   const handleOpenForm = (member?: Member) => {
-    setErrors({});
     if (member) {
-      // Edit Mode
-      setEditingId(member.id);
-      setName(member.name);
-      setPhone(member.phone || '');
-      setEmail(member.email || '');
-      setAddress(member.address || '');
-      setAddressNumber(member.addressNumber || '');
-      setCity(member.city || '');
-      setState(member.state || '');
-      setType(member.type);
-      setBirthDate(member.birthDate || '');
-      setBaptismDate(member.baptismDate || '');
-      setMaritalStatus(member.maritalStatus || '');
-      setGender(member.gender || '');
-      setRg(member.rg || '');
-      setDocument(member.document || '');
-      setNotes(member.notes || '');
-      setStatus(member.status || 'ACTIVE');
-      setTagsInput(member.tags ? member.tags.join(', ') : '');
+      setEditingMember(member);
     } else {
-      // Create Mode
-      setEditingId(null);
-      setName('');
-      setPhone('');
-      setEmail('');
-      setAddress('');
-      setAddressNumber('');
-      setCity('');
-      setState('');
-      setType(activeTab === 'MEMBERS' ? 'MEMBER' : 'SUPPLIER');
-      setBirthDate('');
-      setBaptismDate('');
-      setMaritalStatus('');
-      setGender('');
-      setRg('');
-      setDocument('');
-      setNotes('');
-      setStatus('ACTIVE');
-      setTagsInput('');
+      setEditingMember(null);
     }
     setShowForm(true);
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: Record<string, string> = {};
-
-    if (!name.trim()) {
-      newErrors.name = 'Nome é obrigatório.';
-    }
-
-    // Validação básica de CPF/CNPJ
-    if (type === 'SUPPLIER' && document.trim()) {
-      const cleanDoc = document.replace(/\D/g, '');
-      if (cleanDoc.length !== 11 && cleanDoc.length !== 14) {
-        newErrors.document = 'Documento inválido. Digite 11 (CPF) ou 14 (CNPJ) números.';
-      }
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    const memberData: Member = {
-      id: editingId || '', // Will be generated
-      churchId: currentChurchId,
-      name,
-      type,
-      phone,
-      email,
-      address,
-      addressNumber,
-      city,
-      state,
-      // Specific fields based on type
-      birthDate: type !== 'SUPPLIER' ? birthDate : undefined,
-      baptismDate: type !== 'SUPPLIER' ? baptismDate : undefined,
-      maritalStatus: type !== 'SUPPLIER' ? maritalStatus : undefined,
-      gender: type !== 'SUPPLIER' ? gender : undefined,
-      rg: type !== 'SUPPLIER' ? rg : undefined,
-      // Document is now used for Member (CPF) and Supplier (CNPJ/CPF)
-      document: document || undefined,
-      notes: type === 'SUPPLIER' ? notes : undefined,
-      status: type !== 'SUPPLIER' ? status : undefined,
-      tags: type !== 'SUPPLIER' ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : undefined
-    };
-
-    if (editingId) {
-      await updateMember(memberData);
-    } else {
-      // Remove ID to let storage/db generate it or we generate here? 
-      // Context addMember takes 'Member'. Supabase usually gen ID.
-      // If we need client ID for optimistic, we can gen.
-      // Assuming context handles it or takes Omit<Member, 'id'>?
-      // Type is Member. So let's gen random ID or check if SupabaseService generates it.
-      // SupabaseService maps to snake. If ID is empty string, problem?
-      // Let's generate one if empty.
-      const newMb = { ...memberData, id: memberData.id || crypto.randomUUID() };
-      await addMember(newMb);
-    }
-
-    onUpdate();
-    setShowForm(false);
   };
 
   const handleDelete = async () => {
@@ -251,7 +126,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
               <button
                 onClick={() => setViewMode('GRID')}
                 className={`p-2 rounded-md transition-all ${viewMode === 'GRID' ? 'bg-white dark:bg-slate-600 shadow text-blue-600' : 'text-gray-500'}`}
-                title="cards"
+                title="Cards"
               >
                 <LayoutGrid size={18} />
               </button>
@@ -316,267 +191,15 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
         )}
       </div>
 
-      {/* FORM SECTION (Toggleable) */}
+      {/* MEMBER FORM MODAL */}
       {showForm && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border-2 border-blue-100 dark:border-blue-900 overflow-hidden animate-in slide-in-from-top-4">
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900 flex justify-between items-center">
-            <h3 className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
-              {editingId ? <Edit2 size={18} /> : <Plus size={18} />}
-              {editingId ? 'Editar Cadastro' : 'Novo Cadastro'}
-            </h3>
-            <button onClick={() => setShowForm(false)} className="text-blue-400 hover:text-blue-600"><X size={20} /></button>
-          </div>
-
-          <form onSubmit={handleSave} className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Section: Basic Info */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-slate-700 pb-1">Dados Principais</h4>
-
-                {activeTab === 'MEMBERS' && (
-                  <div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
-                        <div className="flex gap-4">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="type" checked={type === 'MEMBER'} onChange={() => setType('MEMBER')} className="text-blue-600" />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">Membro</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="type" checked={type === 'VISITOR'} onChange={() => setType('VISITOR')} className="text-blue-600" />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">Visitante</span>
-                          </label>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-                        <select
-                          value={status}
-                          onChange={(e) => setStatus(e.target.value as any)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="ACTIVE">Ativo</option>
-                          <option value="INACTIVE">Inativo</option>
-                          <option value="OBSERVATION">Em Observação</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {activeTab === 'MEMBERS' ? 'Nome Completo *' : 'Razão Social / Nome *'}
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className={`w-full p-2 rounded-lg border ${errors.name ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500`}
-                  />
-                  <ErrorMessage message={errors.name} />
-                </div>
-
-                {activeTab === 'MEMBERS' ? (
-                  <div className="space-y-4">
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">CPF</label>
-                        <input
-                          type="text"
-                          value={document}
-                          onChange={e => setDocument(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="000.000.000-00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">RG</label>
-                        <input
-                          type="text"
-                          value={rg}
-                          onChange={e => setRg(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Estado Civil</label>
-                        <select
-                          value={maritalStatus}
-                          onChange={e => setMaritalStatus(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="SINGLE">Solteiro(a)</option>
-                          <option value="MARRIED">Casado(a)</option>
-                          <option value="DIVORCED">Divorciado(a)</option>
-                          <option value="WIDOWED">Viúvo(a)</option>
-                          <option value="STABLE_UNION">União Estável</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sexo</label>
-                        <select
-                          value={gender}
-                          onChange={e => setGender(e.target.value)}
-                          className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Selecione...</option>
-                          <option value="MALE">Masculino</option>
-                          <option value="FEMALE">Feminino</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">CNPJ / CPF</label>
-                    <input
-                      type="text"
-                      value={document}
-                      onChange={e => setDocument(e.target.value)}
-                      className={`w-full p-2 rounded-lg border ${errors.document ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="00.000.000/0000-00"
-                    />
-                    <ErrorMessage message={errors.document} />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Telefone / WhatsApp</label>
-                    <input
-                      type="text"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Details & Address */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase border-b border-gray-100 dark:border-slate-700 pb-1">
-                  {activeTab === 'MEMBERS' ? 'Dados Pessoais & Endereço' : 'Endereço & Serviços'}
-                </h4>
-
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="col-span-3">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Endereço</label>
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={e => setAddress(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Número</label>
-                    <input
-                      type="text"
-                      value={addressNumber}
-                      onChange={e => setAddressNumber(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cidade</label>
-                    <input
-                      type="text"
-                      value={city}
-                      onChange={e => setCity(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">UF</label>
-                    <input
-                      type="text"
-                      value={state}
-                      onChange={e => setState(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                      maxLength={2}
-                    />
-                  </div>
-                </div>
-
-                {activeTab === 'MEMBERS' ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Data Nascimento</label>
-                      <input
-                        type="date"
-                        value={birthDate}
-                        onChange={e => setBirthDate(e.target.value)}
-                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Data Batismo</label>
-                      <input
-                        type="date"
-                        value={baptismDate}
-                        onChange={e => setBaptismDate(e.target.value)}
-                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Descrição do Serviço / Obs</label>
-                    <textarea
-                      rows={2}
-                      value={notes}
-                      onChange={e => setNotes(e.target.value)}
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Ex: Manutenção de Ar Condicionado"
-                    />
-                  </div>
-                )}
-
-                {activeTab === 'MEMBERS' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Etiquetas (Tags) - Separe por vírgula</label>
-                    <div className="relative">
-                      <Tag size={16} className="absolute left-3 top-2.5 text-gray-400" />
-                      <input
-                        type="text"
-                        value={tagsInput}
-                        onChange={e => setTagsInput(e.target.value)}
-                        className="w-full pl-9 p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Ex: Coral, Jovens, Liderança"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-700">Cancelar</button>
-              <button type="submit" className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md">
-                <Save size={16} /> Salvar
-              </button>
-            </div>
-          </form>
-        </div>
+        <MemberForm
+          member={editingMember}
+          type={activeTab === 'MEMBERS' ? 'MEMBER' : 'SUPPLIER'}
+          currentChurchId={currentChurchId}
+          onClose={() => setShowForm(false)}
+          onSuccess={() => { refreshData(); onUpdate(); }}
+        />
       )}
 
       {/* LIST */}
@@ -597,8 +220,8 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                   {/* Status Indicator Stripe */}
                   {m.type !== 'SUPPLIER' && (
                     <div className={`absolute top-0 left-0 w-1 h-full ${m.status === 'INACTIVE' ? 'bg-gray-300' :
-                        m.status === 'OBSERVATION' ? 'bg-amber-400' :
-                          'bg-blue-500'
+                      m.status === 'OBSERVATION' ? 'bg-amber-400' :
+                        'bg-blue-500'
                       }`}></div>
                   )}
 
@@ -756,7 +379,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
         onSuccess={() => { refreshData(); }}
         currentChurchId={currentChurchId}
       />
-    </div >
+    </div>
   );
 };
 

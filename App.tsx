@@ -77,6 +77,7 @@ function AppContent() {
 
   const [isScheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduledTransaction | null>(null);
+  const [systemMode, setSystemMode] = useState<'FINANCE' | 'SECRETARY'>('FINANCE');
 
   // --- Maintenance Mode Logic ---
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false); // DISABLED - Fixing Access
@@ -109,6 +110,11 @@ function AppContent() {
     localStorage.setItem('maintenance_bypass', 'true');
     setIsAdminBypass(true);
     // Removed reload to allow immediate React state update
+  };
+
+  const handleLogin = (user: User, mode: 'FINANCE' | 'SECRETARY') => {
+    setSystemMode(mode);
+    login(user);
   };
 
   const [modalInitialType, setModalInitialType] = useState<TransactionType>(TransactionType.INCOME);
@@ -246,7 +252,7 @@ function AppContent() {
     );
   }
 
-  if (!currentUser) return <Login users={data.users} onLogin={login} logoUrl={systemLogo} />;
+  if (!currentUser) return <Login users={data.users} onLogin={handleLogin} logoUrl={systemLogo} />;
 
   if (currentUser.role === UserRole.MEMBER) {
     const memberProfile = data.members.find(m => m.id === currentUser.memberId);
@@ -275,7 +281,7 @@ function AppContent() {
         />
       )}
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} systemMode={systemMode} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 lg:px-8">
@@ -315,6 +321,8 @@ function AppContent() {
                   funds={filteredAppData.funds}
                   onNewTransaction={openNewTransaction}
                   userRole={currentUser.role}
+                  members={filteredAppData.members}
+                  systemMode={systemMode}
                 />
               } />
               <Route path="/ledger" element={

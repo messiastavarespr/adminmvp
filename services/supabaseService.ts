@@ -486,6 +486,13 @@ export const supabaseService = {
         if (error) throw error;
     },
     deleteUser: async (id: string) => {
+        // First delete associated audit logs to avoid Foreign Key constraint violations
+        const { error: logError } = await supabase.from('audit_logs').delete().eq('user_id', id);
+        if (logError) {
+            console.error('Error deleting user audit logs:', logError);
+            throw new Error('Falha ao limpar logs do usuário: ' + logError.message);
+        }
+
         const { error } = await supabase.from('users').delete().eq('id', id);
         if (error) throw error;
     },
