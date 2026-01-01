@@ -3,7 +3,17 @@ import React, { useState } from 'react';
 import { AlertTriangle, Trash2 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 
-const SettingsDangerZone: React.FC = () => {
+interface SettingsDangerZoneProps {
+    currentUser: any; // Using any to avoid complex recursive imports, or import User type
+}
+// We need to import User from types, but let's assume it's passed or context used. 
+// Actually, let's use the explicit prop.
+
+import { UserRole, User } from '../types';
+
+const SettingsDangerZone: React.FC<{ currentUser: User | null }> = ({ currentUser }) => {
+    // Only MASTER can see this
+    if (currentUser?.role !== UserRole.MASTER) return null;
     const { resetSystem } = useFinance();
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetOptions, setResetOptions] = useState({

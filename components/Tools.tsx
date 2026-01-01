@@ -15,9 +15,11 @@ const simpleToast = (msg: string, type: 'success' | 'error') => {
 
 type ToolTab = 'OFX' | 'EXPORT' | 'RECEIPT' | 'SETUP' | 'CALCULATOR';
 
+import { UserRole } from '../types';
+
 export const Tools: React.FC = () => {
     const [activeTool, setActiveTool] = useState<ToolTab>('RECEIPT');
-    const { activeChurchId, refreshData } = useFinance();
+    const { activeChurchId, refreshData, currentUser } = useFinance();
 
     const handleSeedData = async () => {
         if (!confirm("ATENÇÃO: Isso criará várias categorias, contas e centros de custo padrão na igreja atual. Se eles já existirem com o mesmo nome, poderão ser duplicados. Deseja continuar?")) return;
@@ -84,8 +86,16 @@ export const Tools: React.FC = () => {
                     {activeTool === 'EXPORT' && <ExportData />}
                     {activeTool === 'RECEIPT' && <ReceiptGenerator />}
                     {activeTool === 'CALCULATOR' && <Calculator />}
+                    {/* Setup Tools: Only for MASTER (restricted) */}
                     {activeTool === 'SETUP' && (
-                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                            {currentUser?.role !== UserRole.MASTER && (
+                                <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-8">
+                                    <AlertTriangle size={48} className="text-amber-500 mb-4" />
+                                    <h3 className="text-xl font-bold text-gray-800 dark:text-white">Acesso Restrito</h3>
+                                    <p className="text-gray-500 max-w-md mx-auto mt-2">Esta funcionalidade é exclusiva para o perfil <strong>MASTER</strong>. Contate o administrador do sistema.</p>
+                                </div>
+                            )}
                             <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Configuração Inicial e Dados Padrão</h2>
                             <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm">
                                 Use esta ferramenta para preencher o sistema com um conjunto padrão de contas, categorias e centros de custo comuns para igrejas.

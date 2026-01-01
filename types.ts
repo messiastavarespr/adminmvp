@@ -13,6 +13,7 @@ export enum RecurrenceType {
 }
 
 export enum UserRole {
+  MASTER = 'MASTER',
   ADMIN = 'ADMIN',
   TREASURER = 'TREASURER',
   PASTOR = 'PASTOR',
@@ -189,6 +190,7 @@ export interface ScheduledTransaction {
   recurrence: RecurrenceType;
   occurrences?: number; // Total remaining occurrences (undefined = infinite)
   isActive: boolean;
+  isBankScheduled?: boolean;
   churchId: string;
 }
 

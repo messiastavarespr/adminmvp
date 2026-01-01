@@ -5,6 +5,7 @@ import { CalendarClock, CheckSquare, Trash2, Repeat, Plus, AlertTriangle, Eye, E
 import { useFinance } from '../contexts/FinanceContext';
 import ConfirmationModal from './ConfirmationModal';
 import ScheduledDetailsModal from './ScheduledDetailsModal';
+import { Tooltip } from './ui/Tooltip';
 
 interface ScheduledTransactionsProps {
   scheduled: ScheduledTransaction[];
@@ -315,13 +316,31 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                         }`}>
                         {item.type === TransactionType.INCOME ? 'A Receber' : 'A Pagar'}
                       </span>
-                      {item.recurrence !== RecurrenceType.NONE && (
-                        <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full font-medium" title={item.occurrences ? `Restam ${item.occurrences} parcelas` : 'Repetição Indefinida'}>
-                          <Repeat size={10} /> {getRecurrenceLabel(item.recurrence)}
-                          {item.occurrences && <span className="text-[10px] bg-blue-200 dark:bg-blue-800 px-1 rounded ml-1">{item.occurrences}x</span>}
-                        </span>
-                      )}
+
+                      <div className="flex items-center gap-1">
+                        {item.recurrence !== RecurrenceType.NONE && (
+                          <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full font-medium" title={item.occurrences ? `Restam ${item.occurrences} parcelas` : 'Repetição Indefinida'}>
+                            <Repeat size={10} /> {getRecurrenceLabel(item.recurrence)}
+                            {item.occurrences && <span className="text-[10px] bg-blue-200 dark:bg-blue-800 px-1 rounded ml-1">{item.occurrences}x</span>}
+                          </span>
+                        )}
+
+                        {item.isBankScheduled ? (
+                          <Tooltip content="Esta conta já foi agendada no aplicativo do banco">
+                            <span className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-full font-medium border border-indigo-100 dark:border-indigo-800 cursor-help">
+                              <Landmark size={10} /> Agendado
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip content="Esta conta ainda NÃO foi agendada no banco">
+                            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700/50 px-2 py-1 rounded-full font-medium border border-gray-200 dark:border-slate-600 cursor-help">
+                              <Landmark size={10} /> Não Agendado
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
                     </div>
+
 
                     <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg mb-1 truncate" title={item.title}>
                       {item.title}

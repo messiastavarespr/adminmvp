@@ -31,7 +31,8 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
+  const isMaster = currentUser?.role === UserRole.MASTER;
+  const isAdmin = currentUser?.role === UserRole.ADMIN || isMaster;
 
   // ... (state definitions remain same)
 
@@ -50,6 +51,14 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
 
   // Helper to determine defaults based on role
   const getRoleDefaults = (r: UserRole): UserPermissions => {
+    if (r === UserRole.MASTER) {
+      return {
+        manageCategories: true, manageAccounts: true, manageCostCenters: true,
+        manageBudgets: true, manageChurches: true, manageUsers: true,
+        manageFunds: true,
+        viewAuditLog: true, performBackup: true, performRestore: true
+      };
+    }
     if (r === UserRole.ADMIN) {
       return {
         manageCategories: true, manageAccounts: true, manageCostCenters: true,
@@ -111,55 +120,62 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    try {
+      const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
-    // Hash password if provided
-    let passwordHash = undefined;
-    if (password.trim()) {
-      passwordHash = await hashPassword(password);
-    }
+      // Hash password if provided
+      let passwordHash = undefined;
+      if (password.trim()) {
+        passwordHash = await hashPassword(password);
+      }
 
-    // Force ADMIN permissions to full if role is ADMIN
-    const finalPermissions = role === UserRole.ADMIN ? getRoleDefaults(UserRole.ADMIN) : permissions;
+      // Force ADMIN permissions to full if role is ADMIN based on defaults/logic for security
+      // Use final role to determine defaults if needed or use existing state
+      const finalPermissions = (role === UserRole.ADMIN || role === UserRole.MASTER) ? getRoleDefaults(role) : permissions;
 
-    if (editingId) {
-      // Update
-      const existingUser = users.find(u => u.id === editingId);
-      if (existingUser) {
-        await updateUser({
-          ...existingUser,
+      if (editingId) {
+        // Update
+        const existingUser = users.find(u => u.id === editingId);
+        if (existingUser) {
+          await updateUser({
+            ...existingUser,
+            name,
+            role,
+            churchId,
+            observations,
+            avatarInitials: initials,
+            password: passwordHash || existingUser.password, // Keep old hash if no new password
+            permissions: finalPermissions
+          });
+        }
+      } else {
+        // Create - Require default password if none provided? Or set default
+        const finalPass = passwordHash || await hashPassword('123456');
+
+        const newUser = {
+          id: crypto.randomUUID(),
           name,
           role,
           churchId,
           observations,
           avatarInitials: initials,
-          password: passwordHash || existingUser.password, // Keep old hash if no new password
+          password: finalPass,
           permissions: finalPermissions
-        });
+        };
+        await addUser(newUser);
       }
-    } else {
-      // Create - Require default password if none provided? Or set default
-      const finalPass = passwordHash || await hashPassword('123456');
 
-      const newUser = {
-        id: crypto.randomUUID(),
-        name,
-        role,
-        churchId,
-        observations,
-        avatarInitials: initials,
-        password: finalPass,
-        permissions: finalPermissions
-      };
-      await addUser(newUser);
+      onUpdate();
+      setShowForm(false);
+      setEditingId(null);
+      setName('');
+      setObservations('');
+      setPassword('');
+      alert('Usuário salvo com sucesso!');
+    } catch (error: any) {
+      console.error("Erro ao salvar usuário:", error);
+      alert(`Erro ao salvar usuário: ${error.message || error.toString()}. \n\nSe o erro persistir ao usar o perfil Master, verifique se o banco de dados foi atualizado com o script de migração.`);
     }
-
-    onUpdate();
-    setShowForm(false);
-    setEditingId(null);
-    setName('');
-    setObservations('');
-    setPassword('');
   };
 
   const handleDelete = async () => {
@@ -182,6 +198,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
 
   const getRoleBadge = (r: UserRole) => {
     switch (r) {
+      case UserRole.MASTER: return <span className="bg-slate-800 text-white dark:bg-black dark:text-gray-200 px-2 py-0.5 rounded text-xs font-bold border border-slate-700 dark:border-gray-700">Master</span>;
       case UserRole.ADMIN: return <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded text-xs font-bold border border-red-200 dark:border-red-800">Admin</span>;
       case UserRole.PASTOR: return <span className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 px-2 py-0.5 rounded text-xs font-bold border border-purple-200 dark:border-purple-800">Pastor</span>;
       case UserRole.TREASURER: return <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded text-xs font-bold border border-blue-200 dark:border-blue-800">Tesoureiro</span>;
@@ -257,6 +274,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                   className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!isAdmin && !!editingId}
                 >
+                  {isMaster && <option value={UserRole.MASTER}>Master (Sistema & Config Avançada)</option>}
                   <option value={UserRole.ADMIN}>Administrador (Acesso Total)</option>
                   <option value={UserRole.TREASURER}>Tesoureiro (Financeiro)</option>
                   <option value={UserRole.PASTOR}>Pastor (Visualização/Relatórios)</option>
@@ -290,8 +308,8 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
               </div>
             </div>
 
-            {/* Permissions Panel - Only show for Admin */}
-            {isAdmin && role !== UserRole.ADMIN && role !== UserRole.MEMBER && (
+            {/* Permissions Panel - Only show for customizable roles */}
+            {isAdmin && role !== UserRole.ADMIN && role !== UserRole.MASTER && role !== UserRole.MEMBER && (
               <div className="bg-gray-50 dark:bg-slate-700/30 p-5 rounded-xl border border-gray-100 dark:border-slate-700">
                 <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-slate-600">
                   <CheckSquare size={16} className="text-blue-600" /> Permissões de Acesso (Granular)
@@ -398,21 +416,28 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => handleEdit(u)}
-                        className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                        title={isAdmin ? "Editar" : "Alterar Senha"}
-                      >
-                        {isAdmin ? <Edit2 size={16} /> : <Lock size={16} />}
-                      </button>
-                      {isAdmin && (
-                        <button
-                          onClick={() => setDeleteId(u.id)}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      {/* Prevent Non-Master from editing Master */}
+                      {(!isMaster && u.role === UserRole.MASTER) ? (
+                        <span className="text-xs text-gray-400 italic px-2">Protegido</span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEdit(u)}
+                            className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                            title={isAdmin ? "Editar" : "Alterar Senha"}
+                          >
+                            {isAdmin ? <Edit2 size={16} /> : <Lock size={16} />}
+                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => setDeleteId(u.id)}
+                              className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>

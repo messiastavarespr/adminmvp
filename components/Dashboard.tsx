@@ -87,9 +87,15 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
 
   // --- OPTIMIZATION: Filtered Data for Charts & KPIs ---
   const filteredTransactions = useMemo(() => {
+    // Convert startDate to YYYY-MM-DD string in Local Time for comparison
+    const offset = startDate.getTimezoneOffset();
+    const localStart = new Date(startDate.getTime() - (offset * 60 * 1000));
+    const startDateStr = localStart.toISOString().split('T')[0];
+
     return transactions.filter(t => {
-      const tDate = new Date(t.date);
-      return tDate >= startDate && t.type !== TransactionType.TRANSFER;
+      // String comparison is safer for YYYY-MM-DD dates to avoid timezone shifts
+      // t.date is already YYYY-MM-DD from Supabase
+      return t.date >= startDateStr && t.type !== TransactionType.TRANSFER;
     });
   }, [transactions, startDate]);
 
