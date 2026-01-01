@@ -300,10 +300,10 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
           {viewMode === 'LIST' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeItems.map(item => (
-                <div key={item.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-5 flex flex-col justify-between relative overflow-hidden group animate-in fade-in">
+                <div key={item.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-5 flex flex-col justify-between relative group animate-in fade-in">
                   {/* Overdue Indicator */}
                   {isOverdue(item.dueDate) && (
-                    <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg flex items-center gap-1 uppercase tracking-wide shadow-sm">
+                    <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl flex items-center gap-1 uppercase tracking-wide shadow-sm">
                       <AlertTriangle size={10} /> Atrasado
                     </div>
                   )}
