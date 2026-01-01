@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { LogIn, Users, Lock, Search, ChevronDown, Check, Building2, AlertTriangle, Eye, EyeOff, Trash2, ChurchCross, Image as ImageIcon } from './ui/Icons';
+import { LogIn, Users, Lock, Search, ChevronDown, Check, Building2, AlertTriangle, Eye, EyeOff, Trash2, ChurchCross, Image as ImageIcon, Wallet, BookOpen } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 
 
@@ -215,20 +215,27 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
           </p>
         </div>
 
-        {/* System Toggle */}
-        <div className="flex p-1 bg-gray-100 dark:bg-slate-700 rounded-xl mb-6">
+        {/* System Toggle - Modern Segmented Control */}
+        <div className="relative p-1.5 bg-gray-100 dark:bg-slate-700 rounded-2xl mb-8 flex relative overflow-hidden">
+          {/* Slider Background Animation */}
+          <div
+            className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white dark:bg-slate-600 rounded-xl shadow-sm transition-all duration-300 ease-out z-0 ${loginMode === 'FINANCE' ? 'left-1.5' : 'left-[calc(50%+3px)]'}`}
+          />
+
           <button
             type="button"
             onClick={() => { setLoginMode('FINANCE'); setSelectedUserId(''); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginMode === 'FINANCE' ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 relative z-10 py-3 text-sm font-bold rounded-xl transition-colors duration-300 flex items-center justify-center gap-2 ${loginMode === 'FINANCE' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
+            <Wallet size={18} className={loginMode === 'FINANCE' ? 'animate-pulse-subtle' : ''} />
             Financeiro
           </button>
           <button
             type="button"
             onClick={() => { setLoginMode('SECRETARY'); setSelectedUserId(''); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginMode === 'SECRETARY' ? 'bg-white dark:bg-slate-600 text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 relative z-10 py-3 text-sm font-bold rounded-xl transition-colors duration-300 flex items-center justify-center gap-2 ${loginMode === 'SECRETARY' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
+            <BookOpen size={18} className={loginMode === 'SECRETARY' ? 'animate-pulse-subtle' : ''} />
             Secretaria
           </button>
         </div>

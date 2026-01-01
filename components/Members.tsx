@@ -8,6 +8,8 @@ import MemberDetailsModal from './MemberDetailsModal';
 import ErrorMessage from './ui/ErrorMessage';
 import ImportMembersModal from './ImportMembersModal';
 import MemberForm from './MemberForm';
+import MembershipCard from './secretary/MembershipCard';
+import { FileBadge } from './ui/Icons';
 
 interface MembersProps {
   members: Member[];
@@ -29,6 +31,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [generatingCardMember, setGeneratingCardMember] = useState<Member | null>(null);
 
   // Form State
   const [showForm, setShowForm] = useState(false);
@@ -246,6 +249,11 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {(m.type === 'MEMBER' || m.type === 'VISITOR' || m.type === 'PASTOR') && (
+                        <button onClick={() => setGeneratingCardMember(m)} className="p-1.5 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors" title="Gerar Carteirinha">
+                          <FileBadge size={16} />
+                        </button>
+                      )}
                       <button onClick={() => setViewingMember(m)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Ver Detalhes">
                         <Eye size={16} />
                       </button>
@@ -338,6 +346,9 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                         </td>
                         <td className="p-3 text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {(m.type === 'MEMBER' || m.type === 'VISITOR' || m.type === 'PASTOR') && (
+                              <button onClick={() => setGeneratingCardMember(m)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded" title="Gerar Carteirinha"><Briefcase size={16} /></button>
+                            )}
                             <button onClick={() => setViewingMember(m)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Eye size={16} /></button>
                             {canEdit && (
                               <>
@@ -379,6 +390,13 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
         onSuccess={() => { refreshData(); }}
         currentChurchId={currentChurchId}
       />
+
+      {generatingCardMember && (
+        <MembershipCard
+          member={generatingCardMember}
+          onClose={() => setGeneratingCardMember(null)}
+        />
+      )}
     </div>
   );
 };
