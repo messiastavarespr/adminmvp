@@ -76,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, systemMode = 'FINANC
       title: 'Principal',
       items: [
         { path: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard },
-        { path: '/members', label: 'Pessoas', icon: UserCheck },
+        { path: '/members', label: 'Membros', icon: UserCheck },
       ]
     },
     {

@@ -34,7 +34,7 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
 
   const [viewingItem, setViewingItem] = useState<ScheduledTransaction | null>(null);
 
-  const canEdit = userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
+  const canEdit = userRole === UserRole.MASTER || userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
 
   // Filter items based on active status AND selected month
   const activeItems = scheduled.filter(s => {
