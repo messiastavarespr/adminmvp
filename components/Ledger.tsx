@@ -44,7 +44,8 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
   const [receiptTransaction, setReceiptTransaction] = useState<Transaction | null>(null);
 
-  const canEdit = userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
+  // Per user request, edit option enabled for all profiles
+  const canEdit = true; // was: userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
 
   const getCategoryName = (id?: string) => categories.find(c => c.id === id)?.name || '-';
   const getAccountName = (id: string) => accounts.find(a => a.id === id)?.name || '-';
@@ -71,7 +72,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
 
   const handleExportExcel = () => {
     const exportData = filteredTransactions.map(t => ({
-      Data: new Date(t.date).toLocaleDateString('pt-BR'),
+      Data: t.date.split('T')[0].split('-').reverse().join('/'),
       Descrição: t.description,
       'Membro/Fornecedor': t.memberOrSupplierName || '-',
       Categoria: getCategoryName(t.categoryId),
@@ -166,7 +167,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                 )}
                 itemContent={(index, t) => (
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">{t.date.split('T')[0].split('-').reverse().join('/')}</td>
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{t.description}{t.reconciled && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded border border-green-200" title="Conciliado">OK</span>}</td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[150px]" title={t.memberOrSupplierName}>{t.memberOrSupplierName || '-'}</td>
                     <td className="px-6 py-4"><span className="px-2 py-1 bg-gray-100 dark:bg-slate-600 rounded-full text-xs text-gray-600 dark:text-gray-300 font-medium">{getCategoryName(t.categoryId)}</span></td>
@@ -207,7 +208,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                           {t.memberOrSupplierName && (
                             <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1 flex items-center gap-1"><User size={10} /> {t.memberOrSupplierName}</p>
                           )}
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(t.date).toLocaleDateString('pt-BR')}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.date.split('T')[0].split('-').reverse().join('/')}</p>
                         </div>
                       </div>
                       <p className={`font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</p>
