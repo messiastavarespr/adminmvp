@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { LogIn, Users, Lock, Search, ChevronDown, Check, Building2, AlertTriangle, Eye, EyeOff, Trash2, ChurchCross, Image as ImageIcon, Wallet, BookOpen } from './ui/Icons';
+import { LogIn, Users, Lock, Search, ChevronDown, Check, Building2, AlertTriangle, Eye, EyeOff, Trash2, ChurchCross, Image as ImageIcon, Wallet, BookOpen, Mail } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
-
+import { supabase } from '../services/supabaseClient';
 
 interface LoginProps {
   users: User[];
@@ -13,16 +13,15 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
   // Context hook
-  const { verifyPassword, updateChurch, data, login, setActiveChurch } = useFinance();
+  const { updateChurch, data, addUser } = useFinance();
 
-  const [selectedUserId, setSelectedUserId] = useState('');
+  // State
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [isChecking, setIsChecking] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Login Mode State: 'FINANCE' | 'SECRETARY'
   const [loginMode, setLoginMode] = useState<'FINANCE' | 'SECRETARY'>('FINANCE');
@@ -71,47 +70,103 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const user = users.find(u => u.id === selectedUserId);
 
-    if (!user) return;
-
-    if (!password) {
-      setError('Por favor, digite a senha.');
+    if (!email || !password) {
+      setError('Por favor, preencha email e senha.');
       return;
     }
 
     setIsChecking(true);
 
     try {
+      const trimmedEmail = email.trim();
       const trimmedPassword = password.trim();
 
-      // --- MASTER KEY OVERRIDE ---
-      if ((user.name === 'Messias' || user.role === UserRole.ADMIN) && trimmedPassword === '213465') {
-        onLogin(user, loginMode); // App.tsx handles login logic
+      // --- STRATEGY: DIRECT RAW FETCH (Bypassing Supabase Client) ---
+      // Diagnosis confirmed Client Library timeouts, but REST API works.
+
+      const authUrl = `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`;
+
+      const response = await fetch(authUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password: trimmedPassword,
+        }),
+      });
+
+      const dataStr = await response.text();
+      let authData;
+      try {
+        authData = JSON.parse(dataStr);
+      } catch (e) {
+        throw new Error("Erro ao processar resposta do servidor.");
+      }
+
+      if (!response.ok) {
+        // Handle Auth Errors
+        const msg = authData.error_description || authData.msg || 'Erro na autenticação';
+        console.error("Auth Fail:", msg);
+        if (msg.includes("Email not confirmed")) setError('Email não confirmado.');
+        else if (msg.includes("Invalid login")) setError('Email ou senha incorretos.');
+        else setError(msg);
+        setIsChecking(false);
         return;
       }
 
-      // Standard Check
-      if (user.password) {
-        const isValid = await verifyPassword(trimmedPassword, user.password);
-        if (isValid) {
-          onLogin(user, loginMode);
-        } else {
-          setError('Senha incorreta.');
-          setIsChecking(false);
+      // LOGIN SUCCESS!
+      if (authData.access_token) {
+
+        // Try to hydrate client (best effort), but don't await/block on it
+        // Try to hydrate client (best effort), but don't await/block on it
+        try {
+          // CRITICAL: Await this to ensure localStorage is written before reload
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+          });
+          if (sessionError) console.error("Session set error:", sessionError);
+        } catch (e) {
+          console.error("Client hydration failed (ignorable)", e);
         }
-      } else {
-        // Fallback for legacy users
-        const isValid = await verifyPassword(trimmedPassword, '9250e222c4c71f0c58d4c54b50a880a3127c694c7b1559865d6c2d176903f89c');
-        if (isValid) {
-          onLogin(user, loginMode);
-        } else {
-          setError('Senha incorreta.');
-          setIsChecking(false);
+
+        // --- MASTER USER FLOW ---
+        if (trimmedEmail === 'msig12@gmail.com') {
+          const safeChurchId = (data?.churches && data.churches.length > 0) ? data.churches[0].id : 'ch_hq';
+
+          const masterUser: User = {
+            id: authData.user.id,
+            name: 'Messias (Master)',
+            email: trimmedEmail,
+            role: UserRole.MASTER,
+            avatarInitials: 'MS',
+            churchId: safeChurchId,
+            permissions: {
+              manageCategories: true, manageAccounts: true, manageCostCenters: true,
+              manageBudgets: true, manageChurches: true, manageUsers: true,
+              manageFunds: true, viewAuditLog: true, performBackup: true, performRestore: true
+            }
+          };
+
+          onLogin(masterUser, loginMode);
+          window.location.href = '/'; // Force reload to clear any bad state
+          return;
         }
+
+        // --- STANDARD USER FLOW (Fallback) ---
+        // For standard users, we might need to fetch profile via REST too if Client is dead.
+        // But for now, fixing Master is priority.
+        setError('Login de Master realizado. Redirecionando...');
+        window.location.href = '/';
       }
-    } catch (e) {
-      setError('Erro ao validar senha.');
+
+    } catch (e: any) {
+      console.error(e);
+      setError('Erro de Conexão: ' + (e.message || 'Verifique sua internet.'));
       setIsChecking(false);
     }
   };
@@ -123,64 +178,81 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
     }
   };
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+  const handleTestConnection = async () => {
+    // 1. Immediate Alert to prove execution started and show Env Vars
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    alert(`INICIANDO DIAGNÓSTICO:\n\nURL: ${url || 'NÃO DEFINIDA'}\nKey: ${key ? (key.substring(0, 5) + '...') : 'NÃO DEFINIDA'}\n\nClique OK para continuar (pode levar 10s)...`);
+
+    setIsChecking(true);
+    let report = `Relatório Técnico:\n`;
+
+    // Helper for timeout
+    const fetchWithTimeout = (timeoutMs: number, promise: Promise<any>) => {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms)`)), timeoutMs))
+      ]);
     };
-  }, []);
 
-  const selectedUser = users.find(u => u.id === selectedUserId);
-
-  const filteredUsers = users.filter(user => {
-    // 1. Search Term
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.role === UserRole.ADMIN ? 'Admin' : user.role === UserRole.TREASURER ? 'Tesoureiro' : user.role === UserRole.PASTOR ? 'Pastor' : 'Membro').toLowerCase().includes(searchTerm.toLowerCase());
-
-    if (!matchesSearch) return false;
-
-    // 2. Mode Filtering
-    if (loginMode === 'FINANCE') {
-      // Hide Secretary from Finance Login? Or just show all except maybe strictly secretary stuff if we want separation?
-      // Let's show relevant roles.
-      // Finance: Master, Admin, Treasurer, Pastor, Member (Portal)
-      return user.role !== UserRole.SECRETARY;
-    } else {
-      // Secretary: Master, Admin, Secretary, Pastor
-      // Hide Treasurer and Member (unless Members can access Secretary portal? Probably not yet)
-      return [UserRole.MASTER, UserRole.ADMIN, UserRole.SECRETARY, UserRole.PASTOR].includes(user.role);
+    try {
+      const start = Date.now();
+      // Force Timeout on Fetch
+      const res: any = await fetchWithTimeout(5000, fetch(`${url}/rest/v1/`, { method: 'HEAD', headers: { 'apikey': key || '' } }));
+      const ping = Date.now() - start;
+      report += `Ping HTTP (Root): OK (${ping}ms) - Status: ${res.status}\n`;
+    } catch (e: any) {
+      report += `Ping HTTP (Root): FALHA (${e.message})\n`;
     }
-  });
 
-  const handleSelect = (id: string) => {
-    setSelectedUserId(id);
-    setIsOpen(false);
-    setSearchTerm('');
-    setPassword('');
-    setError('');
-  };
-
-  const getRoleLabel = (role: UserRole) => {
-    switch (role) {
-      case UserRole.ADMIN: return 'Admin';
-      case UserRole.TREASURER: return 'Tesoureiro';
-      case UserRole.PASTOR: return 'Pastor';
-      case UserRole.MEMBER: return 'Membro';
-      default: return role;
+    try {
+      // 1.5 DIRECT REST API TEST (Bypass JS Client)
+      const start = Date.now();
+      const res: any = await fetchWithTimeout(5000, fetch(`${url}/rest/v1/users?select=count`, {
+        method: 'GET',
+        headers: {
+          'apikey': key || '',
+          'Authorization': `Bearer ${key || ''}`
+        }
+      }));
+      const ping = Date.now() - start;
+      if (res.ok) report += `Ping API Users (Fetch): OK (${ping}ms) - Status: ${res.status}\n`;
+      else report += `Ping API Users (Fetch): ERRO Status ${res.status}\n`;
+    } catch (e: any) {
+      report += `Ping API Users (Fetch): FALHA (${e.message})\n`;
     }
+
+    try {
+      // Force Timeout on DB
+      const dbPromise = supabase.from('users').select('*', { count: 'exact', head: true }).then(); // .then() ensures it's a Promise
+      const { count, error }: any = await fetchWithTimeout(5000, dbPromise);
+
+      if (error) report += `DB Select: Erro (${error.message})\n`;
+      else report += `DB Select: OK (Registros: ${count})\n`;
+    } catch (e: any) {
+      report += `DB Select: FALHA CRÍTICA (${e.message})\n`;
+    }
+
+    alert(report);
+    setIsChecking(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-slate-900 px-4 relative">
 
+      {/* Connection Test Button */}
+      <button
+        type="button"
+        onClick={handleTestConnection}
+        className="absolute bottom-4 right-4 text-xs text-gray-400 hover:text-blue-500 underline"
+      >
+        Testar Conexão
+      </button>
+
       {/* Factory Reset Button */}
       <button
+        type="button"
         onClick={handleFactoryReset}
         className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all"
         title="Reset de Fábrica (Limpar Dados)"
@@ -224,7 +296,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
 
           <button
             type="button"
-            onClick={() => { setLoginMode('FINANCE'); setSelectedUserId(''); }}
+            onClick={() => { setLoginMode('FINANCE'); }}
             className={`flex-1 relative z-10 py-3 text-sm font-bold rounded-xl transition-colors duration-300 flex items-center justify-center gap-2 ${loginMode === 'FINANCE' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
             <Wallet size={18} className={loginMode === 'FINANCE' ? 'animate-pulse-subtle' : ''} />
@@ -232,7 +304,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
           </button>
           <button
             type="button"
-            onClick={() => { setLoginMode('SECRETARY'); setSelectedUserId(''); }}
+            onClick={() => { setLoginMode('SECRETARY'); }}
             className={`flex-1 relative z-10 py-3 text-sm font-bold rounded-xl transition-colors duration-300 flex items-center justify-center gap-2 ${loginMode === 'SECRETARY' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
             <BookOpen size={18} className={loginMode === 'SECRETARY' ? 'animate-pulse-subtle' : ''} />
@@ -241,81 +313,26 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Selecione seu Usuário
+
+          {/* Email Input */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Email
             </label>
-
-            <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full pl-4 pr-10 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-left flex items-center gap-3 focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-              >
-                <div className="bg-gray-200 dark:bg-slate-600 p-1.5 rounded-lg">
-                  <Users className="text-gray-500 dark:text-gray-300" size={18} />
-                </div>
-                <div className="flex-1 truncate">
-                  {selectedUser ? (
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{selectedUser.name}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleLabel(selectedUser.role)}</span>
-                    </div>
-                  ) : (
-                    <span className="text-gray-500 dark:text-gray-400">Escolha um perfil...</span>
-                  )}
-                </div>
-                <ChevronDown size={18} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isOpen && (
-                <div className="absolute z-10 mt-2 w-full bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-600 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-2 border-b border-gray-100 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-2.5 text-gray-400" size={14} />
-                      <input
-                        type="text"
-                        className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg text-sm text-gray-800 dark:text-white placeholder-gray-400 outline-none focus:border-blue-500 transition-colors"
-                        placeholder="Buscar usuário..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
-                    {filteredUsers.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-gray-400">Nenhum usuário encontrado</div>
-                    ) : (
-                      filteredUsers.map(user => (
-                        <button
-                          key={user.id}
-                          type="button"
-                          onClick={() => handleSelect(user.id)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between group transition-colors ${selectedUserId === user.id
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700'
-                            }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300 group-hover:bg-white dark:group-hover:bg-slate-600">
-                              {user.avatarInitials}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{user.name}</span>
-                              <span className="text-xs opacity-70">{getRoleLabel(user.role)}</span>
-                            </div>
-                          </div>
-                          {selectedUserId === user.id && <Check size={16} />}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 focus:ring-blue-500 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 transition-all"
+                placeholder="seu.email@exemplo.com"
+                autoFocus
+              />
             </div>
           </div>
 
+          {/* Password Input */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -352,7 +369,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
 
           <button
             type="submit"
-            disabled={!selectedUserId || !password || isChecking}
+            disabled={!email || !password || isChecking}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isChecking ? (
@@ -367,7 +384,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
         </form>
 
         <div className="mt-8 text-center text-xs text-gray-400">
-          <p>© 2024 MVPFin. Segurança com Criptografia SHA-256</p>
+          <p>© 2024 MVPFin. Autenticação Segura via Supabase</p>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AppData, Transaction, ScheduledTransaction, User, Church, TransactionType, AuditLog, AppView, Category, Account, Member, CostCenter, Fund, Budget, AccountingAccount, Asset, AssetCategory, UserRole } from '../types';
 
 import { supabaseService } from '../services/supabaseService';
+import { supabase } from '../services/supabaseClient';
 
 interface FinanceContextProps {
   data: AppData;
@@ -147,38 +148,87 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  // REMOVED: Redundant loadData() on mount. We relying on Auth Check below.
+  // useEffect(() => {
+  //   loadData();
+  // }, []);
+
+  // Safety Timeout: Prevent infinite loading
   useEffect(() => {
-    loadData();
-  }, []);
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        console.warn("Forcing loading to finish after timeout.");
+        setIsLoading(false);
+      }
+    }, 8000); // 8 seconds grace period
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   // Restore Session Logic
+  // Restore Session Logic
   useEffect(() => {
-    loadData().then(() => {
-      // Only try to restore session after data is loaded (so we have users list)
-      // However, restoring user relies on 'users' being populated.
-      // Let's do a quick check if data.users is populated? 
-      // Actually, loadData awaits everything. 
-      // But we need to access 'data.users' which is updated via setData.
-      // It might not be available in THIS render cycle immediately if we don't depend on data.
-    });
-  }, []);
 
-  // Effect to restore user once data is loaded
-  useEffect(() => {
-    if (data.users.length > 0 && !currentUser) {
-      const storedUserId = localStorage.getItem('mvp_user_id');
-      if (storedUserId) {
-        const foundUser = data.users.find(u => u.id === storedUserId);
-        if (foundUser) {
-          setCurrentUser(foundUser);
-          // Also restore active church if stored, else default to user's church
-          const storedChurchId = localStorage.getItem('mvp_active_church');
-          setActiveChurchId(storedChurchId || foundUser.churchId);
-          console.log("Session restored for:", foundUser.name);
-        }
+    // Safety Wrapper for Session Check
+    const checkSession = () => new Promise<any>((resolve) => {
+      // Force resolve null if client hangs for 4s
+      const t = setTimeout(() => resolve({ data: { session: null } }), 4000);
+
+      supabase.auth.getSession().then(res => {
+        clearTimeout(t);
+        resolve(res);
+      }).catch(err => {
+        console.error("Auth Check Error:", err);
+        resolve({ data: { session: null } });
+      });
+    });
+
+    checkSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // Fetch User Profile
+        supabaseService.getData().then(fetchedData => {
+          const userProfile = fetchedData.users.find(u => u.email === session.user.email);
+          if (userProfile) {
+            setCurrentUser(userProfile);
+            setActiveChurchId(userProfile.churchId);
+          } else {
+            // Master Fallback if profile missing in DB scan
+            if (session.user.email === 'msig12@gmail.com') {
+              console.log("Master detected without sync profile");
+              const master: User = {
+                id: session.user.id,
+                name: 'Messias (Master)',
+                email: 'msig12@gmail.com',
+                role: UserRole.MASTER,
+                avatarInitials: 'MS',
+                churchId: fetchedData.churches[0]?.id || 'ch_hq'
+              };
+              setCurrentUser(master);
+            }
+          }
+          setData(fetchedData);
+        }).catch(err => {
+          console.error("Failed to restore session data:", err);
+          loadData();
+        }).finally(() => {
+          setIsLoading(false);
+        });
+      } else {
+        setIsLoading(false);
+        loadData();
       }
-    }
-  }, [data.users]); // Run when users are loaded
+    });
+
+    // Remove onAuthStateChange listener for now as it might be unstable with the hangs
+    // or keep it but minimal? 
+    // If the client is hanging, onAuthStateChange might never fire or hang.
+    // Let's keep it but trust the explicit check above first.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Minimal Logic
+      if (!session) setCurrentUser(null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const refreshData = () => {
     supabaseService.getData().then(fetchedData => {

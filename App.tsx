@@ -16,6 +16,7 @@ import { MaintenanceScreen } from './components/MaintenanceScreen';
 import { OnboardingTour } from './components/OnboardingTour';
 
 // Lazy loaded components (Code Splitting)
+// Lazy loaded components (Code Splitting)
 const Dashboard = React.lazy(() => import('./components/Dashboard'));
 const Ledger = React.lazy(() => import('./components/Ledger'));
 const Settings = React.lazy(() => import('./components/Settings'));
@@ -27,6 +28,9 @@ const Reconciliation = React.lazy(() => import('./components/Reconciliation'));
 const AccountsPayable = React.lazy(() => import('./components/AccountsPayable'));
 const Assets = React.lazy(() => import('./components/Assets'));
 const Registries = React.lazy(() => import('./components/Registries'));
+// Import Profile Page (Not Lazy for now or Lazy is fine)
+import { ProfilePage } from './components/ProfilePage';
+
 const TithesEntry = React.lazy(() => import('./components/TithesEntry').then(module => ({ default: module.TithesEntry }))); // Handle named export if any, checking usage
 // Note: TithesEntry was imported as named { TithesEntry } in previous App.tsx. 
 // If it is a named export, we need the above .then pattern.
@@ -373,6 +377,7 @@ function AppContent() {
               <Route path="/tools" element={<Tools />} />
               <Route path="/assets" element={<Assets />} />
               <Route path="/settings" element={<Settings data={filteredAppData} onDataChange={refreshData} currentUser={currentUser} />} />
+              <Route path="/profile" element={<ProfilePage user={currentUser} />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </Suspense>

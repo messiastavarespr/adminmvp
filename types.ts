@@ -84,13 +84,13 @@ export interface UserPermissions {
 export interface User {
   id: string;
   name: string;
-  email?: string;
+  email: string; // Now required for Auth
   role: UserRole;
   avatarInitials: string;
   memberId?: string;
   churchId: string;
   observations?: string;
-  password?: string; // Hashed password
+  password?: string; // Legacy field, can be kept for backward compat or reference, but auth handles it now
   avatarUrl?: string;
   permissions?: UserPermissions;
 }

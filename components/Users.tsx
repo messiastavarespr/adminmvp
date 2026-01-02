@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { User, UserRole, Church, UserPermissions } from '../types';
-import { Users as UsersIcon, Plus, Trash2, Edit2, Shield, CheckCircle, X, Search, Building2, Lock, CheckSquare, Layers, Database, Target, Save, FileText, AlertTriangle } from './ui/Icons';
+import { Users as UsersIcon, Plus, Trash2, Edit2, Shield, CheckCircle, X, Search, Building2, Lock, CheckSquare, Layers, Database, Target, Save, FileText, AlertTriangle, Eye, EyeOff } from './ui/Icons';
 import SearchBox from './ui/SearchBox';
 import ConfirmationModal from './ConfirmationModal';
 import { useFinance } from '../contexts/FinanceContext';
@@ -34,8 +33,6 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
   const isMaster = currentUser?.role === UserRole.MASTER;
   const isAdmin = currentUser?.role === UserRole.ADMIN || isMaster;
 
-  // ... (state definitions remain same)
-
   // Confirmation state
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -45,6 +42,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
   const [churchId, setChurchId] = useState('');
   const [observations, setObservations] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // New State
 
   // Permissions State
   const [permissions, setPermissions] = useState<UserPermissions>(defaultPermissions);
@@ -93,6 +91,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     setChurchId(user.churchId);
     setObservations(user.observations || '');
     setPassword(''); // Don't show existing hash
+    setShowPassword(false); // Reset visibility
 
     if (user.permissions) {
       setPermissions(user.permissions);
@@ -110,6 +109,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     setChurchId(churches[0]?.id || '');
     setObservations('');
     setPassword('');
+    setShowPassword(false); // Reset visibility
     setPermissions(getRoleDefaults(UserRole.TREASURER));
     setShowForm(true);
   };
@@ -200,13 +200,11 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     }
   };
 
-  // Start Filter Logic Change
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
     if (isAdmin) return matchesSearch;
     return u.id === currentUser?.id; // Non-admins only see themselves
   });
-  // End Filter Logic Change
 
   const getChurchName = (id: string) => churches.find(c => c.id === id)?.name || 'N/A';
 
@@ -310,16 +308,28 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
               </div>
 
               <div className="md:col-span-3">
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                  <Lock size={12} /> Senha de Acesso
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={editingId ? "Deixe em branco para manter a senha atual" : "Crie uma senha (Padrão: 123456)"}
-                />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <Lock size={12} /> Senha de Acesso
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    {showPassword ? <><EyeOff size={10} /> Ocultar</> : <><Eye size={10} /> Mostrar</>}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 pr-10 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder={editingId ? "Deixe em branco para manter a senha atual" : "Crie uma senha (Padrão: 123456)"}
+                  />
+                </div>
                 <p className="text-[10px] text-gray-400 mt-1">A senha será criptografada antes de salvar.</p>
               </div>
             </div>
