@@ -251,7 +251,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return { ...item, diffDays, dueDateObj: dueDate };
       })
-      .filter(item => item.diffDays <= 30)
+      .filter(item => item.diffDays <= 10)
       .sort((a, b) => a.diffDays - b.diffDays);
   }, [scheduled]);
 
