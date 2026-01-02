@@ -36,33 +36,47 @@ export const ReceiptGenerator: React.FC = () => {
     const { data, activeChurchId, currentUser } = useFinance();
     const currentChurch = data.churches.find(c => c.id === (activeChurchId === 'ALL' ? currentUser?.churchId : activeChurchId));
 
+    const [receiptType, setReceiptType] = useState<'PAYMENT' | 'DONATION'>('PAYMENT'); // PAYMENT = Church Pays; DONATION = Church Receives
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
     const [formData, setFormData] = useState<ReceiptData>({
         igreja: {
             nome: currentChurch?.name || '',
             cnpj: currentChurch?.cnpj || '',
             endereco: currentChurch?.address || '',
-            cidade: '', // User to fill
-            estado: '', // User to fill
+            cidade: '',
+            estado: '',
         },
         documento: {
             tipo: 'RECIBO DE PAGAMENTO',
             numero_referencia: '',
         },
-        beneficiario: {
+        beneficiario: { // In DONATION mode, this represents the DONOR
             nome: '',
             cpf_cnpj: '',
-            funcao_descricao: '',
+            funcao_descricao: '', // Used for Member/Visitor status
             dados_bancarios_pix: '',
         },
         pagamento: {
             valor_numerico: 0,
             valor_extenso: '',
-            forma_pagamento: 'PIX',
+            forma_pagamento: 'Dinheiro',
             data_pagamento: new Date().toISOString().split('T')[0],
         },
         descricao: '',
     });
+
+    // Update form when type changes
+    React.useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            documento: {
+                ...prev.documento,
+                tipo: receiptType === 'PAYMENT' ? 'RECIBO DE PAGAMENTO' : 'RECIBO DE DÍZIMO / OFERTA'
+            },
+            descricao: receiptType === 'DONATION' ? 'Dízimo referente ao mês de ...' : ''
+        }));
+    }, [receiptType]);
 
     const handleInputChange = (section: keyof ReceiptData, field: string, value: any) => {
         setFormData(prev => ({
@@ -95,7 +109,7 @@ export const ReceiptGenerator: React.FC = () => {
 
     const validateForm = () => {
         if (!formData.igreja.nome || !formData.igreja.cidade || !formData.igreja.estado) return false;
-        if (!formData.beneficiario.nome || !formData.beneficiario.cpf_cnpj || !formData.beneficiario.funcao_descricao) return false;
+        if (!formData.beneficiario.nome) return false;
         if (formData.pagamento.valor_numerico <= 0 || !formData.pagamento.valor_extenso || !formData.pagamento.data_pagamento) return false;
         if (!formData.descricao) return false;
         return true;
@@ -113,7 +127,6 @@ export const ReceiptGenerator: React.FC = () => {
             format: 'a4'
         });
 
-        // Helper to draw a single receipt at a specific Y offset
         const drawReceipt = (startY: number, copyLabel: string) => {
             const pageWidth = 210;
             const margin = 15;
@@ -122,10 +135,10 @@ export const ReceiptGenerator: React.FC = () => {
             // Border
             doc.setDrawColor(80);
             doc.setLineWidth(0.5);
-            doc.roundedRect(margin, startY, contentWidth, 135, 3, 3); // ~Half page height
+            doc.roundedRect(margin, startY, contentWidth, 135, 3, 3);
 
             // Header Background
-            doc.setFillColor(245, 247, 250); // Light gray/blue
+            doc.setFillColor(245, 247, 250);
             doc.roundedRect(margin + 0.5, startY + 0.5, contentWidth - 1, 25, 3, 3, 'F');
 
             // Logo / Church Name
@@ -161,52 +174,78 @@ export const ReceiptGenerator: React.FC = () => {
             doc.setFontSize(12);
             doc.setTextColor(0);
 
-            const text = "Recebi(emos) de " + formData.igreja.nome + ", a importância supra de R$ " + formData.pagamento.valor_numerico.toFixed(2) + " (" + formData.pagamento.valor_extenso + "), referente a " + formData.descricao + ".";
+            let text = "";
+            let paymentInfo = "";
+
+            if (receiptType === 'PAYMENT') {
+                // CHURCH PAYS SOMEONE (Original Logic)
+                text = "Recebi(emos) de " + formData.igreja.nome + ", a importância supra de R$ " + formData.pagamento.valor_numerico.toFixed(2) + " (" + formData.pagamento.valor_extenso + "), referente a " + formData.descricao + ".";
+                paymentInfo = "O pagamento foi efetuado nesta data, em " + formData.pagamento.forma_pagamento + ", dando plena e geral quitação.";
+            } else {
+                // CHURCH RECEIVES FROM SOMEONE (Donation Logic)
+                text = "Recebemos de " + formData.beneficiario.nome + (formData.beneficiario.cpf_cnpj ? ", inscrito no CPF/CNPJ sob nº " + formData.beneficiario.cpf_cnpj : "") + ", a importância supra de R$ " + formData.pagamento.valor_numerico.toFixed(2) + " (" + formData.pagamento.valor_extenso + "), referente a " + formData.descricao + ".";
+                paymentInfo = "Declaramos que esta doação é voluntária, efetuada em " + formData.pagamento.forma_pagamento + " e destinada à manutenção das atividades religiosas da igreja.";
+            }
 
             const splitText = doc.splitTextToSize(text, contentWidth - 20);
             doc.text(splitText, margin + 10, y);
 
             y += (splitText.length * 6) + 5;
 
-            const paymentInfo = "O pagamento foi efetuado nesta data, em " + formData.pagamento.forma_pagamento + ", dando plena e geral quitação.";
             const splitPayment = doc.splitTextToSize(paymentInfo, contentWidth - 20);
             doc.text(splitPayment, margin + 10, y);
 
             // Date Location
             y += 20;
             const dateObj = new Date(formData.pagamento.data_pagamento);
-            // Adjusting for timezone offset to prevent one-day-off error often interacting with pure dates
             const userTimezoneOffset = dateObj.getTimezoneOffset() * 60000;
             const adjustedDate = new Date(dateObj.getTime() + userTimezoneOffset);
-
             const dateStr = adjustedDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
             doc.setFont("helvetica", "italic");
             doc.text(formData.igreja.cidade + "/" + formData.igreja.estado + ", " + dateStr, pageWidth - margin - 10, y, { align: 'right' });
 
             // Signatures
             y += 25;
 
-            // Beneficiary Signature
-            doc.setLineWidth(0.3);
-            doc.line(margin + 20, y, margin + 80, y);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.text(formData.beneficiario.nome, margin + 50, y + 5, { align: 'center' });
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            const cpfCnpjText = "CPF / CNPJ: " + formData.beneficiario.cpf_cnpj;
-            doc.text(cpfCnpjText, margin + 50, y + 9, { align: 'center' });
-            const roleText = "(" + formData.beneficiario.funcao_descricao + ")";
-            doc.text(roleText, margin + 50, y + 13, { align: 'center' });
+            if (receiptType === 'PAYMENT') {
+                // Who signs: Beneficiary
+                doc.setLineWidth(0.3);
+                doc.line(margin + 20, y, margin + 80, y); // Left Signature Line
 
-            // Church Signature
-            doc.line(pageWidth - margin - 80, y, pageWidth - margin - 20, y);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.text("Tesouraria / Responsável", pageWidth - margin - 50, y + 5, { align: 'center' });
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.text(formData.igreja.nome, pageWidth - margin - 50, y + 9, { align: 'center' });
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.text(formData.beneficiario.nome.substring(0, 30), margin + 50, y + 5, { align: 'center' }); // Beneficiary Name
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.text("CPF/CNPJ: " + (formData.beneficiario.cpf_cnpj || "___________"), margin + 50, y + 9, { align: 'center' });
+
+                // Church Signs as Payer (Right side, often Treasurer)
+                doc.line(pageWidth - margin - 80, y, pageWidth - margin - 20, y);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.text("Tesouraria / Responsável", pageWidth - margin - 50, y + 5, { align: 'center' });
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.text(formData.igreja.nome.substring(0, 30), pageWidth - margin - 50, y + 9, { align: 'center' });
+
+            } else {
+                // DONATION: Church signs as Receiver
+                // Sign line centered
+                doc.setLineWidth(0.3);
+                const centerX = pageWidth / 2;
+                doc.line(centerX - 40, y, centerX + 40, y);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.text(formData.igreja.nome, centerX, y + 5, { align: 'center' }); // Church Name
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.text("Tesouraria / Responsável", centerX, y + 9, { align: 'center' });
+                doc.text("CNPJ: " + (formData.igreja.cnpj || ""), centerX, y + 13, { align: 'center' });
+            }
 
             // Copy Label
             doc.setFontSize(7);
@@ -215,19 +254,19 @@ export const ReceiptGenerator: React.FC = () => {
         };
 
         // Draw 1st Copy
-        drawReceipt(10, "1ª VIA - CONTABILIDADE / IGREJA");
+        drawReceipt(10, receiptType === 'PAYMENT' ? "1ª VIA - CONTABILIDADE / IGREJA" : "1ª VIA - MEMBRO / DOADOR");
 
         // Cut Line
         doc.setDrawColor(150);
         doc.setLineDashPattern([3, 3], 0);
         doc.line(10, 148, 200, 148);
-        doc.setLineDashPattern([], 0); // Reset
+        doc.setLineDashPattern([], 0);
 
         // Draw 2nd Copy
-        drawReceipt(158, "2ª VIA - BENEFICIÁRIO");
+        drawReceipt(158, receiptType === 'PAYMENT' ? "2ª VIA - BENEFICIÁRIO" : "2ª VIA - ARQUIVO DA IGREJA");
 
         if (action === 'download') {
-            const fileName = "recibo_" + new Date().getTime() + ".pdf";
+            const fileName = "recibo_" + (receiptType === 'DONATION' ? 'dizimo_' : 'pagto_') + new Date().getTime() + ".pdf";
             doc.save(fileName);
         } else {
             const blobUrl = doc.output('bloburl');
@@ -248,7 +287,23 @@ export const ReceiptGenerator: React.FC = () => {
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <FileText className="text-blue-600" /> Gerador de Recibos Profissional
                 </h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">Gere recibos em A4 (2 vias) pronto para impressão e recorte.</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">Gere recibos de pagamentos ou dízimos em A4 (2 vias) para impressão.</p>
+            </div>
+
+            {/* TOGGLE TYPE */}
+            <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg w-full max-w-md mx-auto">
+                <button
+                    onClick={() => setReceiptType('PAYMENT')}
+                    className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${receiptType === 'PAYMENT' ? 'bg-white dark:bg-slate-600 text-rose-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Recibo de Pagamento
+                </button>
+                <button
+                    onClick={() => setReceiptType('DONATION')}
+                    className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${receiptType === 'DONATION' ? 'bg-white dark:bg-slate-600 text-purple-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Recibo de Dízimo/Oferta
+                </button>
             </div>
 
             {/* Preview Modal/Overlay */}
@@ -309,7 +364,7 @@ export const ReceiptGenerator: React.FC = () => {
 
                         {/* Payment Details */}
                         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-                            <h3 className="font-semibold text-slate-900 dark:text-white border-b pb-2 border-slate-100 dark:border-slate-700">Detalhes do Pagamento</h3>
+                            <h3 className="font-semibold text-slate-900 dark:text-white border-b pb-2 border-slate-100 dark:border-slate-700">Detalhes do {receiptType === 'PAYMENT' ? 'Pagamento' : 'Dízimo/Oferta'}</h3>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-500 mb-1">Valor (R$)</label>
@@ -341,11 +396,13 @@ export const ReceiptGenerator: React.FC = () => {
 
                     {/* Beneficiary & Description */}
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-                        <h3 className="font-semibold text-slate-900 dark:text-white border-b pb-2 border-slate-100 dark:border-slate-700">Beneficiário e Motivo</h3>
+                        <h3 className="font-semibold text-slate-900 dark:text-white border-b pb-2 border-slate-100 dark:border-slate-700">
+                            {receiptType === 'PAYMENT' ? 'Beneficiário (Quem recebe o dinheiro)' : 'Doador/Membro (Quem entrega o dinheiro)'}
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <Autocomplete
-                                    label="Nome Beneficiário (Quem recebeu)"
+                                    label={receiptType === 'PAYMENT' ? "Nome Beneficiário" : "Nome do Membro/Doador"}
                                     value={formData.beneficiario.nome}
                                     onChange={val => handleInputChange('beneficiario', 'nome', val)}
                                     items={data.members || []}
@@ -373,18 +430,22 @@ export const ReceiptGenerator: React.FC = () => {
                                 <label className="block text-xs font-medium text-slate-500 mb-1">CPF/CNPJ</label>
                                 <input type="text" value={formData.beneficiario.cpf_cnpj} onChange={e => handleInputChange('beneficiario', 'cpf_cnpj', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" />
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">Função / Cargo</label>
-                                <input type="text" value={formData.beneficiario.funcao_descricao} onChange={e => handleInputChange('beneficiario', 'funcao_descricao', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: Prestador de Serviços" />
-                            </div>
-                            <div>
+
+                            {receiptType === 'PAYMENT' && (
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 mb-1">Função / Cargo</label>
+                                    <input type="text" value={formData.beneficiario.funcao_descricao} onChange={e => handleInputChange('beneficiario', 'funcao_descricao', e.target.value)} className="w-full rounded-lg border-2 border-slate-600 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm p-2" placeholder="Ex: Prestador de Serviços" />
+                                </div>
+                            )}
+
+                            <div className={receiptType === 'PAYMENT' ? '' : 'col-span-2'}>
                                 <Autocomplete
                                     label="Motivo / Descrição"
                                     value={formData.descricao}
                                     onChange={val => handleRootChange('descricao', val)}
                                     items={data.categories || []}
                                     itemKey="name"
-                                    placeholder="Ex: pagamento de serviços..."
+                                    placeholder={receiptType === 'PAYMENT' ? "Ex: pagamento de serviços..." : "Ex: Dízimo referente a..."}
                                     onSelect={(cat: any) => handleRootChange('descricao', cat.name)}
                                 />
                             </div>
