@@ -231,6 +231,18 @@ export const supabaseService = {
     },
 
     deleteScheduled: async (id: string) => {
+        // Unlink any associated transactions first to prevent FK violation
+        // This allows deletion of the schedule while keeping the history of payments
+        const { error: unlinkError } = await supabase
+            .from('transactions')
+            .update({ scheduled_id: null })
+            .eq('scheduled_id', id);
+
+        if (unlinkError) {
+            console.error("Error unlinking transactions:", unlinkError);
+            throw unlinkError;
+        }
+
         const { error } = await supabase.from('scheduled_transactions').delete().eq('id', id);
         if (error) throw error;
     },

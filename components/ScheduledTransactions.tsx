@@ -129,10 +129,20 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
 
   const handleDelete = async () => {
     if (deleteId) {
-      await deleteScheduled(deleteId); // Context handles refresh
-      // onUpdate(); // Context triggers refresh, parent might reload but let's rely on Context
-      onUpdate(); // Calling it to be safe if parent re-renders list
-      setDeleteId(null);
+      try {
+        await deleteScheduled(deleteId); // Context handles refresh
+        onUpdate(); // Calling it to be safe if parent re-renders list
+      } catch (error: any) {
+        console.error("Erro ao excluir agendamento:", error);
+        // Check for Postgres Foreign Key Violation (Code 23503)
+        if (error?.code === '23503' || error?.message?.includes('violates foreign key constraint') || error?.details?.includes('Key (id)')) {
+          alert("Não é possível excluir este agendamento pois existem pagamentos (lançamentos) já realizados vinculados a ele.\n\nPara excluir, você deve primeiro excluir os lançamentos no Livro Caixa.");
+        } else {
+          alert(`Erro ao excluir agendamento: ${error?.message || 'Erro desconhecido'}`);
+        }
+      } finally {
+        setDeleteId(null);
+      }
     }
   };
 
