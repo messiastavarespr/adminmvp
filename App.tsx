@@ -155,7 +155,7 @@ function AppContent() {
   // --------------------------
 
   // Data Filtering Logic
-  const isHeadquartersUser = currentUser && data.churches.find(c => c.id === currentUser.churchId)?.type === 'HEADQUARTERS';
+  const isHeadquartersUser = currentUser?.role === UserRole.MASTER || (currentUser && data.churches.find(c => c.id === currentUser.churchId)?.type === 'HEADQUARTERS');
   const targetChurchId = activeChurchId === 'ALL' ? (currentUser?.churchId || '') : activeChurchId;
 
   const filteredTransactions = data.transactions.filter(t => activeChurchId === 'ALL' ? true : t.churchId === activeChurchId);

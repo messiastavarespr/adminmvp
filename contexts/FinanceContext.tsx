@@ -193,16 +193,17 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
           } else {
             // Master Fallback if profile missing in DB scan
             if (session.user.email === 'msig12@gmail.com') {
-              console.log("Master detected without sync profile");
+              console.log("Master detected without sync profile - FORCING ALL ACCESS");
               const master: User = {
                 id: session.user.id,
                 name: 'Messias (Master)',
                 email: 'msig12@gmail.com',
                 role: UserRole.MASTER,
                 avatarInitials: 'MS',
-                churchId: fetchedData.churches[0]?.id || 'ch_hq'
+                churchId: 'ALL' // Force ALL for internal checks
               };
               setCurrentUser(master);
+              setActiveChurchId('ALL'); // Force Global View
             }
           }
           setData(fetchedData);
