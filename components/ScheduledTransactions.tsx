@@ -18,6 +18,10 @@ interface ScheduledTransactionsProps {
   userRole: UserRole;
 }
 
+interface ScheduledUIItem extends ScheduledTransaction {
+  isProjection?: boolean;
+}
+
 const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
   scheduled, categories, costCenters, accounts, onUpdate, onOpenModal, onEdit, userRole
 }) => {
@@ -37,19 +41,81 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
   const canEdit = userRole === UserRole.MASTER || userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
 
   // Filter items based on active status AND selected month
-  const activeItems = scheduled.filter(s => {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const currentYear = new Date().getFullYear();
+
+  // 1. Get Real Items for this view
+  const realItems = scheduled.filter(s => {
     if (!s.isActive) return false;
-
-    // Parse the due date (YYYY-MM-DD)
-    // We append T12:00:00 to ensure we don't get timezone shifts on parsing
     const dueDate = new Date(s.dueDate + 'T12:00:00');
+    return dueDate.getMonth() === month && dueDate.getFullYear() === year;
+  });
 
-    // Compare Month and Year
-    const matchesMonth = dueDate.getMonth() === viewDate.getMonth();
-    const matchesYear = dueDate.getFullYear() === viewDate.getFullYear();
+  // 2. Generate Projections (Only for current year)
+  const projectedItems: ScheduledUIItem[] = [];
 
-    return matchesMonth && matchesYear;
-  }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  if (year === currentYear) {
+    scheduled.forEach(item => {
+      // Skip if not active or no recurrence
+      if (!item.isActive || item.recurrence === RecurrenceType.NONE) return;
+
+      // Start calculating from the ACTUAL due date
+      let nextDate = new Date(item.dueDate + 'T12:00:00');
+
+      // Safety break to prevent infinite loops
+      let loops = 0;
+      while (loops < 100) {
+        loops++;
+
+        // Advance date based on recurrence
+        switch (item.recurrence) {
+          case RecurrenceType.WEEKLY:
+            nextDate.setDate(nextDate.getDate() + 7);
+            break;
+          case RecurrenceType.MONTHLY:
+            // Handle month overflow correctly
+            const d = nextDate.getDate();
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            // If date changed (e.g. 31 Jan -> 3 Mar), set to last day of Feb
+            if (nextDate.getDate() !== d) {
+              nextDate.setDate(0);
+            }
+            break;
+          case RecurrenceType.YEARLY:
+            nextDate.setFullYear(nextDate.getFullYear() + 1);
+            break;
+        }
+
+        // Stop if we passed the current year
+        if (nextDate.getFullYear() > currentYear) break;
+
+        // If active item matches this specific month/year, we don't need a projection for THIS exact instance
+        // But wait - if the real item is in Jan, and we process Jan view.
+        // The real item is shown. Loop starts. Next date -> Feb.
+        // Feb doesn't match Jan.
+        // So we only look for matches in the VIEW month.
+
+        if (nextDate.getMonth() === month && nextDate.getFullYear() === year) {
+          // Check if we already have a REAL item for this date? 
+          // No, strictly speaking purely projected.
+          // Create Projected Item
+          projectedItems.push({
+            ...item,
+            id: `proj-${item.id}-${nextDate.getTime()}`,
+            dueDate: nextDate.toISOString().split('T')[0],
+            isProjection: true
+          });
+        }
+
+        // Optimization: If we passed the view month, we can stop for this item 
+        // (assuming sorted view logic, but we need to check if we are viewing a future month)
+        if (nextDate > new Date(year, month + 1, 0)) break;
+      }
+    });
+  }
+
+  const activeItems = [...realItems, ...projectedItems].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()) as ScheduledUIItem[];
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || 'Desconhecido';
 
@@ -299,12 +365,19 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
         <>
           {viewMode === 'LIST' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeItems.map(item => (
-                <div key={item.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-5 flex flex-col justify-between relative group animate-in fade-in">
+              {activeItems.map((item: ScheduledUIItem) => (
+                <div key={item.id} className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-5 flex flex-col justify-between relative group animate-in fade-in ${item.isProjection ? 'opacity-70 border-dashed border-gray-300 dark:border-slate-600' : ''}`}>
+
                   {/* Overdue Indicator */}
-                  {isOverdue(item.dueDate) && (
+                  {isOverdue(item.dueDate) && !item.isProjection && (
                     <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl flex items-center gap-1 uppercase tracking-wide shadow-sm">
                       <AlertTriangle size={10} /> Atrasado
+                    </div>
+                  )}
+
+                  {item.isProjection && (
+                    <div className="absolute top-0 right-0 bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded-bl-lg rounded-tr-xl flex items-center gap-1 uppercase tracking-wide">
+                      <Calendar size={10} /> Previsão
                     </div>
                   )}
 
@@ -368,7 +441,7 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                     </div>
                   </div>
 
-                  {canEdit && (
+                  {canEdit && !item.isProjection && (
                     <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-slate-700">
                       <button
                         onClick={() => openPaymentModal(item)}
@@ -397,6 +470,12 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                           <Trash2 size={16} />
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {item.isProjection && (
+                    <div className="pt-4 border-t border-dashed border-gray-200 dark:border-slate-700 text-center">
+                      <p className="text-xs text-gray-400 italic">Previsão Futura</p>
                     </div>
                   )}
                 </div>

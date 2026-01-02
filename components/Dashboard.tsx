@@ -17,7 +17,7 @@ interface DashboardProps {
   funds?: Fund[];
   onNewTransaction: (type: TransactionType) => void;
   userRole: UserRole;
-  userRole: UserRole;
+
   members?: Member[];
   systemMode?: 'FINANCE' | 'SECRETARY';
 }
@@ -39,7 +39,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     localStorage.setItem('mvp_hide_values', String(newState));
   };
 
-  const canEdit = userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
+  const canEdit = userRole === UserRole.MASTER || userRole === UserRole.ADMIN || userRole === UserRole.TREASURER;
 
   // --- OPTIMIZATION: Memoize date range ---
   const startDate = useMemo(() => {

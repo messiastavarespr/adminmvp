@@ -39,6 +39,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   // Bank Schedule Status
   const [isBankScheduled, setIsBankScheduled] = useState(false);
+  const [documentUrl, setDocumentUrl] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFormValid, setIsFormValid] = useState(false);
@@ -63,6 +64,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
           setIsInfinite(true);
           setOccurrences('');
         }
+        setDocumentUrl(editingSchedule.documentUrl || '');
       } else {
         setType(TransactionType.EXPENSE);
         setTitle('');
@@ -75,6 +77,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
         setIsBankScheduled(false);
         setIsInfinite(true);
         setOccurrences('');
+        setDocumentUrl('');
       }
       setErrors({});
     }
@@ -145,7 +148,8 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
       recurrence,
       occurrences: (recurrence !== RecurrenceType.NONE && !isInfinite) ? parseInt(occurrences) : undefined,
       isActive: true,
-      isBankScheduled
+      isBankScheduled,
+      documentUrl
     });
     onClose();
   };
@@ -311,6 +315,18 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
             )}
 
             <p className="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-1 mt-2"><AlertTriangle size={12} className="shrink-0 mt-0.5" />{getRecurrenceHelpText()}</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Link do Documento (Opcional)</label>
+            <input
+              type="url"
+              value={documentUrl}
+              onChange={(e) => setDocumentUrl(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2 text-gray-900 dark:text-white outline-none text-sm"
+              placeholder="https://"
+            />
+            <p className="text-[10px] text-gray-400 mt-1">Cole aqui o link do Google Drive, Boleto ou comprovante.</p>
           </div>
 
           <div className="pt-4 flex gap-3">

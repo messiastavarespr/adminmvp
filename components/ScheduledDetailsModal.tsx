@@ -122,20 +122,24 @@ const ScheduledDetailsModal: React.FC<ScheduledDetailsModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase">Status Bancário</label>
-                <div className="flex items-center gap-2 text-gray-800 dark:text-white font-medium">
-                  {schedule.isBankScheduled ? (
-                    <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-md text-sm border border-indigo-100 dark:border-indigo-800">
-                      <Landmark size={14} /> Agendado no Banco
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">Não agendado externamente</span>
-                  )}
+            {schedule.documentUrl && (
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Documento Anexo</label>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={schedule.documentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-100 dark:border-blue-800 w-full"
+                    >
+                      <FileText size={18} />
+                      <span className="font-medium">Abrir Documento / Comprovante</span>
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="border-t border-gray-100 dark:border-slate-700 pt-4 text-xs text-gray-400 flex justify-between">

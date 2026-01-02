@@ -219,6 +219,7 @@ export interface ScheduledTransaction {
   occurrences?: number; // Total remaining occurrences (undefined = infinite)
   isActive: boolean;
   isBankScheduled?: boolean;
+  documentUrl?: string; // Link to external document (e.g. Drive, Boleto)
   churchId: string;
 }
 
