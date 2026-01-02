@@ -83,12 +83,21 @@ function AppContent() {
   const [editingSchedule, setEditingSchedule] = useState<ScheduledTransaction | null>(null);
   const [systemMode, setSystemMode] = useState<'FINANCE' | 'SECRETARY'>('FINANCE');
 
+  const [showSecretaryPopup, setShowSecretaryPopup] = useState(false);
+
   // Sync System Mode with User Role
   useEffect(() => {
     if (currentUser?.role === UserRole.SECRETARY) {
       setSystemMode('SECRETARY');
     }
   }, [currentUser]);
+
+  // Show Popup when entering Secretary Mode
+  useEffect(() => {
+    if (systemMode === 'SECRETARY') {
+      setShowSecretaryPopup(true);
+    }
+  }, [systemMode]);
 
   // --- Maintenance Mode Logic ---
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false); // DISABLED - Fixing Access
@@ -400,6 +409,37 @@ function AppContent() {
         funds={filteredAppData.funds}
         editingSchedule={editingSchedule}
       />
+
+      {/* MVPSec Welcome Popup */}
+      {showSecretaryPopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 relative overflow-hidden animate-in zoom-in-95 duration-300 border border-gray-100 dark:border-slate-700">
+            {/* Decorative Background Element */}
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-100 dark:bg-purple-900/30 rounded-full blur-3xl opacity-60 pointer-events-none" />
+
+            <div className="flex flex-col items-center text-center relative z-10">
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                <Building2 size={32} />
+              </div>
+
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                Estamos trabalhando para aperfeiçoar o sistema de Secretaria da MVP...
+              </h3>
+
+              <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+                Calma crente que logo tudo vai ficar pronto! 🙏
+              </p>
+
+              <button
+                onClick={() => setShowSecretaryPopup(false)}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-600/30 transition-all active:scale-95"
+              >
+                Entendi, vou aguardar!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, UserRole, Church, UserPermissions } from '../types';
-import { Users as UsersIcon, Plus, Trash2, Edit2, Shield, CheckCircle, X, Search, Building2, Lock, CheckSquare, Layers, Database, Target, Save, FileText, AlertTriangle, Eye, EyeOff } from './ui/Icons';
+import { Users as UsersIcon, Plus, Trash2, Edit2, Shield, CheckCircle, X, Search, Building2, Lock, CheckSquare, Layers, Database, Target, Save, FileText, AlertTriangle, Eye, EyeOff, Camera, Upload } from './ui/Icons';
 import SearchBox from './ui/SearchBox';
 import ConfirmationModal from './ConfirmationModal';
 import { useFinance } from '../contexts/FinanceContext';
@@ -25,7 +25,7 @@ const defaultPermissions: UserPermissions = {
 };
 
 const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
-  const { hashPassword, addUser, updateUser, deleteUser, currentUser } = useFinance();
+  const { hashPassword, addUser, updateUser, deleteUser, currentUser, uploadAttachment } = useFinance();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,11 +38,17 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
 
   // Form State
   const [name, setName] = useState('');
+  const [email, setEmail] = useState(''); // New State
   const [role, setRole] = useState<UserRole>(UserRole.TREASURER);
   const [churchId, setChurchId] = useState('');
   const [observations, setObservations] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // New State
+  const [showPassword, setShowPassword] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [allowedChurches, setAllowedChurches] = useState<string[]>([]);
+  const [accessMvpSec, setAccessMvpSec] = useState(false);
+  const [accessMvpFin, setAccessMvpFin] = useState(true); // New State
 
   // Permissions State
   const [permissions, setPermissions] = useState<UserPermissions>(defaultPermissions);
@@ -81,17 +87,30 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
         viewAuditLog: false, performBackup: false, performRestore: false
       };
     }
+    if (r === UserRole.PASTOR) {
+      return {
+        manageCategories: false, manageAccounts: false, manageCostCenters: false,
+        manageBudgets: false, manageChurches: false, manageUsers: false,
+        manageFunds: false,
+        viewAuditLog: true, performBackup: false, performRestore: false
+      };
+    }
     return defaultPermissions;
   };
 
   const handleEdit = (user: User) => {
     setEditingId(user.id);
     setName(user.name);
+    setEmail(user.email || '');
     setRole(user.role);
     setChurchId(user.churchId);
     setObservations(user.observations || '');
-    setPassword(''); // Don't show existing hash
-    setShowPassword(false); // Reset visibility
+    setAvatarUrl(user.avatarUrl || '');
+    setAllowedChurches(user.allowedChurches || [user.churchId]);
+    setAccessMvpSec(user.accessMvpSec || false);
+    setAccessMvpFin(user.accessMvpFin !== undefined ? user.accessMvpFin : true);
+    setPassword('');
+    setShowPassword(false);
 
     if (user.permissions) {
       setPermissions(user.permissions);
@@ -105,11 +124,16 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
   const handleAdd = () => {
     setEditingId(null);
     setName('');
+    setEmail('');
     setRole(UserRole.TREASURER);
     setChurchId(churches[0]?.id || '');
     setObservations('');
+    setAvatarUrl('');
+    setAllowedChurches(churches[0]?.id ? [churches[0].id] : []);
+    setAccessMvpSec(false);
+    setAccessMvpFin(true);
     setPassword('');
-    setShowPassword(false); // Reset visibility
+    setShowPassword(false);
     setPermissions(getRoleDefaults(UserRole.TREASURER));
     setShowForm(true);
   };
@@ -124,6 +148,22 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+
+    try {
+      setIsUploading(true);
+      const url = await uploadAttachment(file);
+      setAvatarUrl(url);
+    } catch (error) {
+      console.error("Erro ao fazer upload da imagem:", error);
+      alert("Erro ao fazer upload da imagem. Tente novamente.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -131,44 +171,52 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
     try {
       const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
-      // Hash password if provided
       let passwordHash = undefined;
       if (password.trim()) {
         passwordHash = await hashPassword(password);
       }
 
-      // Force ADMIN permissions to full if role is ADMIN based on defaults/logic for security
-      // Use final role to determine defaults if needed or use existing state
       const finalPermissions = (role === UserRole.ADMIN || role === UserRole.MASTER) ? getRoleDefaults(role) : permissions;
 
+      // Ensure primary church is in allowed list
+      const finalAllowedChurches = Array.from(new Set([...allowedChurches, churchId])).filter(Boolean);
+
       if (editingId) {
-        // Update
         const existingUser = users.find(u => u.id === editingId);
         if (existingUser) {
           await updateUser({
             ...existingUser,
             name,
+            email,
             role,
             churchId,
             observations,
             avatarInitials: initials,
-            password: passwordHash || existingUser.password, // Keep old hash if no new password
-            permissions: finalPermissions
+            avatarUrl,
+            password: passwordHash || existingUser.password,
+            permissions: finalPermissions,
+            allowedChurches: finalAllowedChurches,
+            accessMvpSec,
+            accessMvpFin
           });
         }
       } else {
-        // Create - Require default password if none provided? Or set default
         const finalPass = passwordHash || await hashPassword('123456');
 
         const newUser = {
           id: crypto.randomUUID(),
           name,
+          email,
           role,
           churchId,
           observations,
           avatarInitials: initials,
+          avatarUrl,
           password: finalPass,
-          permissions: finalPermissions
+          permissions: finalPermissions,
+          allowedChurches: finalAllowedChurches,
+          accessMvpSec,
+          accessMvpFin
         };
         await addUser(newUser);
       }
@@ -177,10 +225,13 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
       setShowForm(false);
       setEditingId(null);
       setName('');
+      setEmail('');
+      setAvatarUrl('');
       setObservations('');
       setPassword('');
       alert('Usuário salvo com sucesso!');
     } catch (error: any) {
+
       console.error("Erro ao salvar usuário:", error);
       alert(`Erro ao salvar usuário: ${error.message || error.toString()}. \n\nSe o erro persistir ao usar o perfil Master, verifique se o banco de dados foi atualizado com o script de migração.`);
     }
@@ -266,8 +317,33 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
             {editingId ? 'Editar Usuário' : 'Novo Usuário'}
           </h3>
           <form onSubmit={handleSave} className="space-y-6">
+
+            {/* Avatar Upload */}
+            <div className="flex justify-center mb-6">
+              <div className="relative group">
+                <div className={`w-24 h-24 rounded-full flex items-center justify-center border-4 border-white dark:border-slate-700 shadow-md ${avatarUrl ? 'bg-transparent' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold text-3xl'}`}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : <UsersIcon size={32} />
+                  )}
+                </div>
+                {/* Overlay Button */}
+                <label className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full cursor-pointer shadow-lg transition-transform hover:scale-105">
+                  {isUploading ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <Camera size={16} />}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={(!isAdmin && currentUser?.id !== editingId && !!editingId) || isUploading}
+                  />
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nome Completo</label>
                 <input
                   type="text"
@@ -277,6 +353,17 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                   placeholder="Ex: João da Silva"
                   autoFocus
                   disabled={!isAdmin && !!editingId}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email de Acesso</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="usuario@email.com"
+                  disabled={!isAdmin && !!editingId} // Email is immutable generally to avoid auth mismatch, or needs deep logic
                 />
               </div>
               <div>
@@ -296,7 +383,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Igreja Vinculada</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Igreja Principal (Sede)</label>
                 <select
                   value={churchId}
                   onChange={(e) => setChurchId(e.target.value)}
@@ -333,6 +420,89 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
                 <p className="text-[10px] text-gray-400 mt-1">A senha será criptografada antes de salvar.</p>
               </div>
             </div>
+
+            {/* Multi-Church & System Access Block - Only for Admins */}
+            {isAdmin && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-slate-700/30 p-5 rounded-xl border border-gray-100 dark:border-slate-700">
+
+                {/* 1. Multi-Church Access */}
+                <div>
+                  <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-slate-600">
+                    <Building2 size={16} className="text-blue-600" /> Acesso a Igrejas (Multi-Site)
+                  </h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
+                    {churches.map(c => {
+                      const isPrimary = c.id === churchId;
+                      const isChecked = allowedChurches.includes(c.id) || isPrimary;
+                      return (
+                        <label key={c.id} className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-600 ${isPrimary ? 'bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 opacity-80' : 'bg-transparent border-transparent'}`}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isPrimary) return; // Prevent unchecking primary
+                              if (isChecked) {
+                                setAllowedChurches(prev => prev.filter(id => id !== c.id));
+                              } else {
+                                setAllowedChurches(prev => [...prev, c.id]);
+                              }
+                            }}
+                            disabled={isPrimary} // Always checked/disabled for primary
+                            className="rounded text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className={`text-xs ${isPrimary ? 'font-bold text-blue-800 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                            {c.name} {isPrimary && '(Principal)'}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-2">O usuário poderá alternar entre as igrejas selecionadas.</p>
+                </div>
+
+                {/* 2. MVPSec Access */}
+                <div>
+                  <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-slate-600">
+                    <Layers size={16} className="text-purple-600" /> Módulos do Sistema
+                  </h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 p-3 rounded-lg border bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 cursor-pointer hover:shadow-md transition-all">
+                      <div className={`w-10 h-6 rounded-full p-1 transition-colors ${accessMvpSec ? 'bg-purple-600' : 'bg-gray-300 dark:bg-slate-600'}`}>
+                        <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${accessMvpSec ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={accessMvpSec}
+                        onChange={() => setAccessMvpSec(!accessMvpSec)}
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-gray-800 dark:text-white">MVPSec (Secretaria)</p>
+                        <p className="text-[10px] text-gray-500">Acesso ao módulo de gestão de membros e eclesiástico.</p>
+                      </div>
+                    </label>
+
+                    {/* MVPFin Module Toggle */}
+                    <label className="flex items-center gap-3 p-3 rounded-lg border bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 cursor-pointer hover:shadow-md transition-all">
+                      <div className={`w-10 h-6 rounded-full p-1 transition-colors ${accessMvpFin ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-600'}`}>
+                        <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${accessMvpFin ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={accessMvpFin}
+                        onChange={() => setAccessMvpFin(!accessMvpFin)}
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-gray-800 dark:text-white">MVPFin (Financeiro)</p>
+                        <p className="text-[10px] text-gray-500">Acesso ao módulo de gestão financeira.</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+            )}
 
             {/* Permissions Panel - Only show for customizable roles */}
             {isAdmin && role !== UserRole.ADMIN && role !== UserRole.MASTER && role !== UserRole.MEMBER && (
@@ -411,6 +581,7 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
           <thead className="bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-gray-300 font-medium">
             <tr>
               <th className="px-6 py-3">Usuário</th>
+              <th className="px-6 py-3">Email</th>
               <th className="px-6 py-3">Perfil</th>
               <th className="px-6 py-3">Igreja</th>
               <th className="px-6 py-3 text-right">Ações</th>
@@ -419,21 +590,28 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
           <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-400">Nenhum usuário encontrado.</td>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-400">Nenhum usuário encontrado.</td>
               </tr>
             ) : (
               filteredUsers.map(u => (
                 <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
-                        {u.avatarInitials}
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs overflow-hidden border border-gray-100 dark:border-slate-600">
+                        {u.avatarUrl ? (
+                          <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                        ) : (
+                          u.avatarInitials
+                        )}
                       </div>
                       <div>
                         <span className="font-medium text-gray-900 dark:text-white block">{u.name}</span>
                         {u.observations && <span className="text-xs text-gray-500 dark:text-gray-400">{u.observations}</span>}
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 dark:text-gray-300 text-xs">
+                    {u.email}
                   </td>
                   <td className="px-6 py-4">{getRoleBadge(u.role)}</td>
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-300 flex items-center gap-1">

@@ -93,6 +93,9 @@ export interface User {
   password?: string; // Legacy field, can be kept for backward compat or reference, but auth handles it now
   avatarUrl?: string;
   permissions?: UserPermissions;
+  allowedChurches?: string[];
+  accessMvpSec?: boolean;
+  accessMvpFin?: boolean;
 }
 
 export interface Member {

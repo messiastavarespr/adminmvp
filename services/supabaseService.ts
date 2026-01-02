@@ -133,7 +133,7 @@ export const supabaseService = {
             notifications: mapToCamel<any[]>(notifications || []), // Notifications type might be loose or defined
             assets: mapToCamel<Asset[]>(assets || []),
             assetCategories: mapToCamel<any[]>(assetCategories || []),
-            theme: 'light', // Local preference only
+            theme: 'dark', // Default to Dark Mode
             memberRoles: [], // TODO: Persist if needed
             memberCategories: [] // TODO: Persist if needed
         };

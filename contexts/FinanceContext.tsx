@@ -96,6 +96,7 @@ interface FinanceContextProps {
   resetSystem: (options: { transactions: boolean; members: boolean; budgets: boolean; settings: boolean; audit: boolean }) => Promise<void>;
   toggleTheme: () => void;
   loadMoreAuditLogs: () => Promise<void>;
+  uploadAttachment: (file: File) => Promise<string>;
 }
 
 const FinanceContext = createContext<FinanceContextProps | undefined>(undefined);
@@ -119,7 +120,7 @@ const initialData: AppData = {
   notifications: [],
   assets: [],
   assetCategories: [],
-  theme: 'light',
+  theme: 'dark',
 };
 
 export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
@@ -163,6 +164,33 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
     }, 8000); // 8 seconds grace period
     return () => clearTimeout(timer);
   }, [isLoading]);
+
+  // Sync currentUser with latest data
+  useEffect(() => {
+    if (currentUser && data.users.length > 0) {
+      // Find the updated user object in the new data
+      const updatedUser = data.users.find(u => u.id === currentUser.id);
+
+      // If found and different, update internal state
+      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
+        // Preserve specific fields if needed, but usually we want the DB truth
+        // Special case: Master with "ALL" churchId might be local-only override?
+        // Let's check if the updatedUser lacks permissions or role if we forced them.
+
+        // If it was the generated Master user (which might not exist in users list if not synced),
+        // updatedUser would be undefined, so this block won't run.
+        console.log("Syncing currentUser with updated data...");
+        setCurrentUser(updatedUser);
+
+        // Also update church if it was dependent on the user's church
+        if (updatedUser.churchId !== activeChurchId && activeChurchId !== 'ALL') {
+          // Maybe don't switch church automatically as it might be annoying
+          // setActiveChurchId(updatedUser.churchId);
+        }
+      }
+    }
+  }, [data.users]);
+
 
   // Restore Session Logic
   // Restore Session Logic
@@ -477,7 +505,8 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
         if (newLogs.length > 0) {
           setData(prev => ({ ...prev, auditLogs: [...prev.auditLogs, ...newLogs] }));
         }
-      }
+      },
+      uploadAttachment: supabaseService.uploadAttachment
     }}>
       {children}
     </FinanceContext.Provider>

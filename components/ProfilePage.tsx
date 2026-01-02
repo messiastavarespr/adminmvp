@@ -11,7 +11,7 @@ interface ProfilePageProps {
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ user }) => {
-    const { updateUser, refreshData } = useFinance();
+    const { updateUser, refreshData, uploadAttachment } = useFinance(); // Add uploadAttachment
 
     const [name, setName] = useState(user.name);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -19,7 +19,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false); // New State
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+
+        try {
+            setIsUploadingAvatar(true);
+            const url = await uploadAttachment(file);
+
+            // Immediately save the new avatar
+            await updateUser({
+                ...user,
+                avatarUrl: url
+            });
+            refreshData(); // Refresh UI
+            setMessage({ type: 'success', text: 'Foto de perfil atualizada!' });
+        } catch (error: any) {
+            console.error("Upload error:", error);
+            setMessage({ type: 'error', text: 'Erro ao enviar foto. Tente novamente.' });
+        } finally {
+            setIsUploadingAvatar(false);
+        }
+    };
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,17 +101,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user }) => {
                 {/* Column 1: Avatar & Basic Info */}
                 <div className="md:col-span-1 space-y-6">
                     <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col items-center text-center">
-                        <div className="relative group cursor-pointer mb-4">
-                            <div className="w-32 h-32 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center text-4xl font-bold text-gray-400 overflow-hidden border-4 border-white dark:border-slate-800 shadow-lg">
+                        <div className="relative group mb-4">
+                            <div className={`w-32 h-32 rounded-full flex items-center justify-center border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden ${user.avatarUrl ? 'bg-transparent' : 'bg-gray-200 dark:bg-slate-700 text-4xl font-bold text-gray-400'}`}>
                                 {user.avatarUrl ? (
                                     <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
                                 ) : (
                                     <span>{user.avatarInitials}</span>
                                 )}
                             </div>
-                            <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                <Camera size={24} />
-                            </div>
+
+                            {/* Camera Overlay / Upload Button */}
+                            <label className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer">
+                                {isUploadingAvatar ? <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent" /> : <Camera size={24} />}
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleAvatarUpload}
+                                    disabled={isUploadingAvatar}
+                                />
+                            </label>
                         </div>
 
                         <div className="w-full">

@@ -157,11 +157,49 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, logoUrl }) => {
           return;
         }
 
-        // --- STANDARD USER FLOW (Fallback) ---
-        // For standard users, we might need to fetch profile via REST too if Client is dead.
-        // But for now, fixing Master is priority.
-        setError('Login de Master realizado. Redirecionando...');
-        window.location.href = '/';
+        // --- STANDARD USER FLOW ---
+        // Fetch full profile to pass to onLogin
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError || !userProfile) {
+          // If profile fetch fails (rare but possible during race conditions), 
+          // allow reload to handle it but we lose the mode. 
+          // Ideally we should wait or retry, but for now:
+          console.error("Profile fetch error on login:", profileError);
+          window.location.href = '/';
+          return;
+        }
+
+        const standardUser: User = {
+          ...userProfile,
+          // Map DB fields to User type if needed (supabaseService does this, but here we are raw)
+          // Actually, let's trust the context to reload execution, OR:
+          // Better: Call onLogin with the fetched user
+        };
+
+        // Convert snake_case to camelCase manually if needed or just use what we have if the types match
+        // Assuming database columns match User type or close enough for now.
+        // Actually, let's use the helper if possible, or Map:
+        const mappedUser: User = {
+          id: userProfile.id,
+          name: userProfile.name,
+          email: userProfile.email,
+          role: userProfile.role,
+          avatarInitials: userProfile.avatar_initials || (userProfile.name ? userProfile.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'US'),
+          churchId: userProfile.church_id || userProfile.churchId,
+          avatarUrl: userProfile.avatar_url,
+          accessMvpSec: userProfile.access_mvp_sec,
+          accessMvpFin: userProfile.access_mvp_fin,
+          allowedChurches: userProfile.allowed_churches,
+          permissions: userProfile.permissions
+        };
+
+        onLogin(mappedUser, loginMode);
+        return;
       }
 
     } catch (e: any) {
