@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Transaction, TransactionType, Category, Account, Member, CostCenter, Fund } from '../types';
+import { Transaction, TransactionType, Category, Account, Member, CostCenter, Fund, User, UserRole } from '../types';
 import { X, Plus, Minus, UserCheck, Upload, Paperclip, Trash2, Layers, ArrowLeftRight, Edit2, AlertTriangle, CheckCircle, Target, HelpCircle } from './ui/Icons';
 import ErrorMessage from './ui/ErrorMessage';
 import { Tooltip } from './ui/Tooltip';
@@ -18,10 +18,11 @@ interface TransactionModalProps {
   editingTransaction?: Transaction | null;
   initialData?: Partial<Transaction> | null; // New prop for pre-filling
   transactions?: Transaction[];
+  currentUser?: User | null;
 }
 
 const TransactionModal: React.FC<TransactionModalProps> = ({
-  isOpen, onClose, onSave, onTransfer, categories, costCenters, accounts, funds = [], members, initialType, editingTransaction, initialData, transactions = []
+  isOpen, onClose, onSave, onTransfer, categories, costCenters, accounts, funds = [], members, initialType, editingTransaction, initialData, transactions = [], currentUser
 }) => {
   const [type, setType] = useState<TransactionType>(initialType || TransactionType.INCOME);
 
@@ -54,7 +55,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
       if (editingTransaction) {
         // Edit Mode
         setType(editingTransaction.type);
-        setDate(editingTransaction.date);
+        // Safely extract YYYY-MM-DD from date string (handles both "YYYY-MM-DD" and "YYYY-MM-DD HH:mm:ss")
+        setDate(editingTransaction.date ? editingTransaction.date.split('T')[0].split(' ')[0] : getLocalDate());
         setAmount(editingTransaction.amount.toString());
         setDescription(editingTransaction.description);
         setCategoryId(editingTransaction.categoryId || '');
@@ -73,7 +75,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         // Create Mode (or Pre-fill Mode)
         if (initialData) {
           setType(initialData.type || initialType || TransactionType.INCOME);
-          setDate(initialData.date || getLocalDate());
+          setDate(initialData.date ? initialData.date.split('T')[0].split(' ')[0] : getLocalDate());
           setAmount(initialData.amount ? initialData.amount.toString() : '');
           setDescription(initialData.description || '');
           setCategoryId(initialData.categoryId || '');
@@ -180,13 +182,18 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const proceedSave = async () => {
     try {
+      // FIX: Append 12:00:00 to ensure we land in the middle of the day.
+      // This prevents timezone shifts (which are usually +/- 12h) from changing the calendar day
+      // when converting between Local and UTC.
+      const dateWithTime = `${date} 12:00:00`;
+
       if (type === TransactionType.TRANSFER && onTransfer) {
-        onTransfer(parseFloat(amount), accountId, toAccountId, fundId, date, description);
+        onTransfer(parseFloat(amount), accountId, toAccountId, fundId, dateWithTime, description);
       } else {
         const selectedMember = members.find(m => m.id === memberId);
         onSave({
           id: editingTransaction?.id,
-          date,
+          date: dateWithTime,
           amount: parseFloat(amount),
           description,
           categoryId,
@@ -269,7 +276,16 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Data *</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none" />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                disabled={isEditing && currentUser?.role !== UserRole.MASTER}
+                className={`w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none ${isEditing && currentUser?.role !== UserRole.MASTER ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+              {isEditing && currentUser?.role !== UserRole.MASTER && (
+                <p className="text-[10px] text-gray-500 mt-1">Apenas MASTER pode alterar a data de lançamentos antigos.</p>
+              )}
             </div>
           </div>
 

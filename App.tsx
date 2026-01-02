@@ -327,6 +327,7 @@ function AppContent() {
                   accounts={filteredAppData.accounts}
                   funds={filteredAppData.funds}
                   onNewTransaction={openNewTransaction}
+                  onEdit={handleEditTransaction}
                   userRole={currentUser.role}
                   members={filteredAppData.members}
                   systemMode={systemMode}
@@ -383,6 +384,7 @@ function AppContent() {
         categories={filteredCategories} costCenters={filteredCostCenters} accounts={filteredAccounts} members={filteredMembers} funds={filteredAppData.funds}
         initialType={modalInitialType} editingTransaction={editingTransaction} initialData={preFillTransaction}
         transactions={filteredAppData.transactions}
+        currentUser={currentUser}
       />
       <ScheduleModal
         isOpen={isScheduleModalOpen}

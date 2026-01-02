@@ -19,19 +19,27 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({ data }) 
     const currentChurch = data.churches.find(c => c.id === data.users[0]?.churchId) || data.churches[0];
 
     const reportData = useMemo(() => {
-        const startOfMonth = new Date(selectedYear, selectedMonth, 1);
-        const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59);
+        // Helper to get Year and Month from YYYY-MM-DD string safely
+        const getTxYearMonth = (dateString: string) => {
+            if (!dateString) return { year: 0, month: 0, day: 0 };
+            const [y, m, d] = dateString.split('-').map(Number);
+            return { year: y, month: m - 1, day: d }; // Month is 0-indexed for consistency if needed, but here we just need generic comparison
+        };
 
-        // 1. Previous Balance (All transactions before start of month)
-        // Note: This is an approximation. In a real accounting system, we'd have closing balances.
-        // Assuming 'initialBalance' of accounts + transactions < startOfMonth
+        // Selected Period (Start and End)
+        // We want to include everything in the selected month/year.
+        // And for previous balance, everything BEFORE the selected month/year (by date string).
+
         let previousBalance = data.accounts.reduce((acc, a) => acc + (a.churchId === currentChurch?.id ? a.initialBalance : 0), 0);
 
-        const previousTransactions = data.transactions.filter(t =>
-            t.churchId === currentChurch?.id &&
-            new Date(t.date) < startOfMonth &&
-            t.isPaid
-        );
+        const previousTransactions = data.transactions.filter(t => {
+            if (t.churchId !== currentChurch?.id || !t.isPaid) return false;
+            const { year, month } = getTxYearMonth(t.date);
+            // Compare: is transaction BEFORE selected period?
+            if (year < selectedYear) return true;
+            if (year === selectedYear && month < selectedMonth) return true;
+            return false;
+        });
 
         previousTransactions.forEach(t => {
             if (t.type === TransactionType.INCOME) previousBalance += t.amount;
@@ -39,12 +47,12 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({ data }) 
         });
 
         // 2. Current Month Movement
-        const monthTransactions = data.transactions.filter(t =>
-            t.churchId === currentChurch?.id &&
-            new Date(t.date) >= startOfMonth &&
-            new Date(t.date) <= endOfMonth &&
-            t.isPaid
-        );
+        const monthTransactions = data.transactions.filter(t => {
+            if (t.churchId !== currentChurch?.id || !t.isPaid) return false;
+            const { year, month } = getTxYearMonth(t.date);
+            // Compare: is transaction IN selected period?
+            return year === selectedYear && month === selectedMonth;
+        });
 
         const totalIncome = monthTransactions
             .filter(t => t.type === TransactionType.INCOME)
@@ -57,22 +65,21 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({ data }) 
         const currentBalance = previousBalance + totalIncome - totalExpense;
 
         // 3. Breakdown by Account (Current Balance of each account at end of month)
-        // Ideally we calculate this per account, but as a summary:
-        // We can just list current balances IF selected month is current month.
-        // If historical, we need to calculate historical balance per account. Complex.
-        // For MVP, we will show GLOBAL previous/current.
-        // And list Accounts with their *calculated* balance at end of that month.
-
         const accountBalances = data.accounts
             .filter(a => a.churchId === currentChurch?.id)
             .map(acc => {
                 let bal = acc.initialBalance;
-                // Add all txs for this account up to end of selected month
-                const accTxs = data.transactions.filter(t =>
-                    t.accountId === acc.id &&
-                    new Date(t.date) <= endOfMonth &&
-                    t.isPaid
-                );
+
+                // Add all txs for this account up to end of selected month (Previous + Current)
+                const accTxs = data.transactions.filter(t => {
+                    if (t.accountId !== acc.id || !t.isPaid) return false;
+                    const { year, month } = getTxYearMonth(t.date);
+                    // Is transaction <= selected period?
+                    if (year < selectedYear) return true;
+                    if (year === selectedYear && month <= selectedMonth) return true;
+                    return false;
+                });
+
                 accTxs.forEach(t => {
                     if (t.type === TransactionType.INCOME) bal += t.amount;
                     else if (t.type === TransactionType.EXPENSE) bal -= t.amount;

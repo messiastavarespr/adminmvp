@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend, AreaChart, Area, ComposedChart, Line, ReferenceLine
 } from 'recharts';
-import { Plus, Minus, BarChart3, AlertTriangle, CalendarClock, Filter, PieChart as PieIcon, X, TrendingUp, TrendingDown, Wallet, ArrowRight, ArrowLeftRight, CheckCircle, Landmark, Activity, List, Target, ChevronDown, Eye, EyeOff, Users, Briefcase, UserPlus, Cake } from './ui/Icons';
+import { Plus, Minus, BarChart3, AlertTriangle, CalendarClock, Filter, PieChart as PieIcon, X, TrendingUp, TrendingDown, Wallet, ArrowRight, ArrowLeftRight, CheckCircle, Landmark, Activity, List, Target, ChevronDown, Eye, EyeOff, Users, Briefcase, UserPlus, Cake, Edit2 } from './ui/Icons';
 import { ICON_MAP } from './ui/IconMap';
 
 interface DashboardProps {
@@ -16,6 +16,7 @@ interface DashboardProps {
   accounts: Account[];
   funds?: Fund[];
   onNewTransaction: (type: TransactionType) => void;
+  onEdit?: (transaction: Transaction) => void; // Added onEdit
   userRole: UserRole;
 
   members?: Member[];
@@ -26,7 +27,16 @@ type TimeRange = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
 
-const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categories, budgets, accounts, funds = [], onNewTransaction, userRole, members = [], systemMode = 'FINANCE' }) => {
+const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categories, budgets, accounts, funds = [], onNewTransaction, onEdit, userRole, members = [], systemMode = 'FINANCE' }) => {
+  // ... existing state ...
+  // (Skipping purely unchanged lines for brevity in replacement, but I must match exact target content)
+
+  // To avoid replacing the whole file, I will split this into two ReplaceFileContent calls if needed, or just target the interface and the render part separately if they are far apart. 
+  // They are somewhat far. I will target the interface/props first.
+
+  // ACTUALLY, I can't do logic here. I need to make the tool call.
+  // I will just modify the component signature and the interface first.
+
   const [timeRange, setTimeRange] = useState<TimeRange>('MONTHLY');
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -703,15 +713,22 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
                 <div className="p-10 text-center text-gray-400 text-sm">Nenhum lançamento encontrado.</div>
               ) : (
                 recentTransactions.map(t => (
-                  <div key={t.id} className="p-4 sm:px-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group">
+                  <div
+                    key={t.id}
+                    onClick={() => canEdit && onEdit && onEdit(t)}
+                    className={`p-4 sm:px-6 flex items-center justify-between transition-colors group border-b border-gray-50 dark:border-slate-800 last:border-0 ${canEdit && onEdit ? 'cursor-pointer hover:bg-blue-50/50 dark:hover:bg-slate-700/50' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'}`}
+                  >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-xs shadow-sm ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400' : t.type === TransactionType.EXPENSE ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'}`}>{t.type === TransactionType.INCOME ? <TrendingUp size={18} /> : <TrendingDown size={18} />}</div>
                       <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">{t.description}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1 group-hover:text-blue-600 transition-colors">{t.description}</p>
                         <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5"><span className="font-medium bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{new Date(t.date).toLocaleDateString('pt-BR')}</span><span className="text-gray-300 dark:text-slate-600">|</span><span>{categories.find(c => c.id === t.categoryId)?.name}</span></div>
                       </div>
                     </div>
-                    <div className="text-right"><span className={`text-sm font-bold tabular-nums block ${t.type === TransactionType.INCOME ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{t.type === TransactionType.INCOME ? '+' : '-'}{formatValue(t.amount)}</span></div>
+                    <div className="text-right">
+                      <span className={`text-sm font-bold tabular-nums block ${t.type === TransactionType.INCOME ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{t.type === TransactionType.INCOME ? '+' : '-'}{formatValue(t.amount)}</span>
+                      {canEdit && <span className="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-1 items-center mt-1"><Edit2 size={10} /> Editar</span>}
+                    </div>
                   </div>
                 ))
               )}

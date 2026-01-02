@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { supabase } from '../services/supabaseClient';
 import { AlertTriangle, Trash2 } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 
@@ -55,6 +56,53 @@ const SettingsDangerZone: React.FC<{ currentUser: User | null }> = ({ currentUse
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Ações destrutivas. Selecione o que deseja apagar.</p>
             <button onClick={() => setShowResetModal(true)} className="flex items-center justify-center gap-2 p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium rounded-lg border border-red-100 dark:border-red-800 hover:bg-red-100 transition-colors w-full md:w-auto">
                 <Trash2 size={18} /> Opções de Reset
+            </button>
+
+            <button onClick={async () => {
+                // Try to find them by description (case insensitive) and approximate date (December 2025)
+                // Filter locally if needed or chain ilike. Supabase JS doesn't support OR in a simple way for multiple like, 
+                // but we can search for them one by one or fetch all from dec/2025 and filter.
+
+                // Let's try searching for the specific descriptions in Dec 2025
+                const { data: candidates, error: fetchError } = await supabase
+                    .from('transactions')
+                    .select('id, description, date')
+                    .gte('date', '2025-12-01')
+                    .lte('date', '2025-12-31')
+                    .ilike('description', '%Empréstimo%') // Try one by one or use a broader fetch
+
+                // Actually, let's just run 3 updates for safety and cover partial matches
+
+                const updates = [
+                    { term: '%Empréstimo%', dateVal: '2026-01-01' },
+                    { term: '%Previdência%', dateVal: '2026-01-01' },
+                    { term: '%Seguro de vida Pastoral%', dateVal: '2026-01-01' }
+                ];
+
+                let successCount = 0;
+                let errors = [];
+
+                for (const up of updates) {
+                    const { error, count } = await supabase
+                        .from('transactions')
+                        .update({ date: up.dateVal })
+                        .ilike('description', up.term)
+                        .gte('date', '2025-12-01')
+                        .lte('date', '2025-12-31'); // Restriction to Dec 2025 to avoid messing up other months
+
+                    if (error) errors.push(error.message);
+                    // Supabase update doesn't always return count unless asked, but we assume if no error it worked if records existed
+                }
+
+                if (errors.length > 0) {
+                    alert('Erros ao corrigir: ' + errors.join(', '));
+                } else {
+                    alert('Tentativa de correção concluída! Por favor, verifique se as datas mudaram.');
+                    window.location.reload();
+                }
+
+            }} className="mt-4 flex items-center justify-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium rounded-lg border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition-colors w-full md:w-auto">
+                Corrigir Datas (Forçar Dez/25 para Jan/26)
             </button>
 
             {/* Custom Reset Modal */}
