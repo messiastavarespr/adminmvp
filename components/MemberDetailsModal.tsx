@@ -2,6 +2,8 @@ import React from 'react';
 import { Member } from '../types';
 import { X, Printer, User, Briefcase, Phone, Mail, MapPin, Calendar, FileText, Heart, BookOpen, GraduationCap } from './ui/Icons';
 import jsPDF from 'jspdf';
+import { generateMemberDataSheet } from '../utils/pdfGenerator';
+import { useFinance } from '../contexts/FinanceContext';
 
 interface MemberDetailsModalProps {
   isOpen: boolean;
@@ -43,113 +45,17 @@ const MemberDetailsModal: React.FC<MemberDetailsModalProps> = ({ isOpen, onClose
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const handlePrint = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
+  const { data } = useFinance();
 
-    // Header Background
-    doc.setFillColor(248, 250, 252);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-
-    // Title
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text("FICHA CADASTRAL", pageWidth / 2, 20, { align: 'center' });
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100);
-    doc.text(getTypeLabel(member.type).toUpperCase(), pageWidth / 2, 28, { align: 'center' });
-
-    let y = 50;
-
-    // Helper to print a row
-    const printRow = (label: string, value: string) => {
-      if (!value) return;
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(50);
-      doc.text(label, 20, y);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(0);
-      doc.text(value, 70, y);
-
-      doc.setDrawColor(230);
-      doc.line(20, y + 2, pageWidth - 20, y + 2);
-      y += 10;
-
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-    };
-
-    // Header Section
-    const printSectionHeader = (title: string) => {
-      y += 5;
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(11);
-      doc.text(title.toUpperCase(), 20, y);
-      y += 8;
-      doc.setFontSize(10);
-    };
-
-    printSectionHeader("Dados Básicos");
-    printRow("Nome / Razão Social:", member.name);
-
-    if (member.type === 'SUPPLIER' || member.document) {
-      printRow("CNPJ / CPF:", member.document || '-');
+  const handlePrint = async () => {
+    try {
+      const church = data.churches.find(c => c.id === member.churchId);
+      const spouse = member.spouseId ? data.members.find(m => m.id === member.spouseId) : null;
+      await generateMemberDataSheet(member, church, spouse?.name);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Erro ao gerar PDF.");
     }
-    if (member.rg) printRow("RG:", member.rg);
-
-    printRow("Telefone:", member.phone || '-');
-    printRow("Email:", member.email || '-');
-
-    const fullAddress = [member.address, member.addressNumber, member.city, member.state].filter(Boolean).join(' - ');
-    printRow("Endereço:", fullAddress || '-');
-
-    if (member.type !== 'SUPPLIER') {
-      printSectionHeader("Dados Pessoais");
-      if (member.gender) printRow("Sexo:", getGenderLabel(member.gender));
-      printRow("Data de Nascimento:", formatDate(member.birthDate));
-      printRow("Nacionalidade:", member.nationality || '-');
-      printRow("Naturalidade:", member.naturalness || '-');
-      printRow("Profissão:", member.profession || '-');
-      printRow("Escolaridade:", member.educationLevel || '-');
-      printRow("Nome do Pai:", member.fatherName || '-');
-      printRow("Nome da Mãe:", member.motherName || '-');
-
-      printSectionHeader("Dados Famíliares");
-      if (member.maritalStatus) printRow("Estado Civil:", getMaritalStatusLabel(member.maritalStatus));
-      printRow("Data Casamento:", formatDate(member.weddingDate));
-      // Spouse will be ID, ideally fetch name, but for print let's skip complex lookup for now or show ID
-      // printRow("Cônjuge ID:", member.spouseId || '-'); 
-      printRow("Filhos:", member.children || '-');
-
-      printSectionHeader("Dados Eclesiásticos");
-      printRow("Data Conversão:", formatDate(member.conversionDate));
-      printRow("Data Batismo:", formatDate(member.baptismDate));
-      printRow("Batismo Espírito Santo:", member.baptismHolySpirit ? 'Sim' : 'Não');
-      printRow("Igreja Anterior:", member.previousChurch || '-');
-      printRow("Forma de Entrada:", member.entryMethod || '-');
-      if (member.status === 'INACTIVE') {
-        printRow("Data Saída:", formatDate(member.exitDate));
-        printRow("Motivo Saída:", member.exitReason || '-');
-      }
-    } else {
-      printRow("Observações:", member.notes || '-');
-    }
-
-    // Footer
-    const today = new Date().toLocaleDateString('pt-BR');
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text(`Emitido em: ${today}`, 20, 280);
-    doc.text("Sistema MVPFin", pageWidth - 20, 280, { align: 'right' });
-
-    doc.save(`ficha_${member.name.replace(/\s/g, '_')}.pdf`);
   };
 
   return (
@@ -280,8 +186,44 @@ const MemberDetailsModal: React.FC<MemberDetailsModalProps> = ({ isOpen, onClose
                     <p className="text-sm text-gray-800 dark:text-white">{formatDate(member.weddingDate)}</p>
                   </div>
                   <div className="p-2 col-span-full">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">Cônjuge</p>
+                    <p className="text-sm text-gray-800 dark:text-white">
+                      {(() => {
+                        if (!member.spouseId) return '-';
+                        const spouse = data.members.find(m => m.id === member.spouseId);
+                        return spouse ? spouse.name : '(Não encontrado)';
+                      })()}
+                    </p>
+                  </div>
+                  <div className="p-2 col-span-full">
                     <p className="text-[10px] text-gray-500 uppercase font-bold">Filhos</p>
-                    <p className="text-sm text-gray-800 dark:text-white">{member.children || '-'}</p>
+                    <div className="text-sm text-gray-800 dark:text-white">
+                      {(() => {
+                        if (!member.children) return '-';
+                        try {
+                          // Check if JSON
+                          if (member.children.startsWith('[') || member.children.startsWith('{')) {
+                            const list = JSON.parse(member.children);
+                            if (Array.isArray(list) && list.length > 0) {
+                              return (
+                                <ul className="list-disc pl-4 space-y-1">
+                                  {list.map((c: any, i: number) => (
+                                    <li key={i}>
+                                      {c.name}
+                                      {c.birthDate && <span className="text-gray-400 text-xs ml-2">({new Date(c.birthDate).toLocaleDateString('pt-BR')})</span>}
+                                      {c.memberId && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] px-1.5 rounded ml-2">Vínculado</span>}
+                                    </li>
+                                  ))}
+                                </ul>
+                              );
+                            }
+                          }
+                          return member.children; // Fallback to raw text
+                        } catch (e) {
+                          return member.children;
+                        }
+                      })()}
+                    </div>
                   </div>
                 </div>
               </section>

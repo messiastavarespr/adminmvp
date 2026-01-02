@@ -134,6 +134,8 @@ export const supabaseService = {
             assets: mapToCamel<Asset[]>(assets || []),
             assetCategories: mapToCamel<any[]>(assetCategories || []),
             theme: 'light', // Local preference only
+            memberRoles: [], // TODO: Persist if needed
+            memberCategories: [] // TODO: Persist if needed
         };
     },
 
@@ -249,6 +251,45 @@ export const supabaseService = {
     deleteMember: async (id: string) => {
         const { error } = await supabase.from('members').delete().eq('id', id);
         if (error) throw error;
+    },
+
+    mergeMembers: async (fromId: string, toId: string) => {
+        // 1. Move Transactions
+        const { error: txError } = await supabase
+            .from('transactions')
+            .update({ member_or_supplier_id: toId })
+            .eq('member_or_supplier_id', fromId);
+        if (txError) throw txError;
+
+        // 2. Move Scheduled Transactions (Skipped - field not present in Types)
+        /*
+        const { error: schError } = await supabase
+            .from('scheduled_transactions')
+            .update({ member_or_supplier_id: toId }) // Guessing column name
+            .eq('member_or_supplier_id', fromId);
+        if (schError) throw schError;
+        */
+
+        // 3. Update Users linked to this member
+        const { error: userError } = await supabase
+            .from('users')
+            .update({ member_id: toId })
+            .eq('member_id', fromId);
+        if (userError) throw userError;
+
+        // 4. Update Spouse References
+        const { error: spouseError } = await supabase
+            .from('members')
+            .update({ spouse_id: toId })
+            .eq('spouse_id', fromId);
+        if (spouseError) throw spouseError;
+
+        // 5. Delete Old Member
+        const { error: delError } = await supabase
+            .from('members')
+            .delete()
+            .eq('id', fromId);
+        if (delError) throw delError;
     },
 
     // --- Audit ---

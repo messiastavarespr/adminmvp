@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Member } from '../types';
 import { useFinance } from '../contexts/FinanceContext';
-import { Save, X, User, MapPin, Church, Phone, FileText, Heart, Camera } from './ui/Icons';
+import { Save, X, User, MapPin, Church, Phone, FileText, Heart, Camera, Plus, Trash2, Settings, Upload } from './ui/Icons';
 import ErrorMessage from './ui/ErrorMessage';
+import MemberSelect from './ui/MemberSelect';
+import DataListManager from './ui/DataListManager';
 
 interface MemberFormProps {
     member?: Member | null;
@@ -10,30 +12,229 @@ interface MemberFormProps {
     onClose: () => void;
     onSuccess: () => void;
     currentChurchId: string;
+    initialValues?: Partial<Member>; // New prop for manual initialization
+    onSaved?: (member: Member) => void; // New prop to capture created member
 }
 
 type TabType = 'BASIC' | 'PERSONAL' | 'ECCLESIASTICAL' | 'FAMILY';
 
-const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onClose, onSuccess, currentChurchId }) => {
-    const { addMember, updateMember } = useFinance();
+// Helper Component for Children List... (ChildListManager code omitted for brevity as it is unchanged, but tool requires contiguous block if I don't select carefuly. I will try to target specific blocks or replace the component definition and main body separately if needed. 
+// Actually, to be safe and clean, I will just update the props interface first, then the specific "Family" tab section, and finally the state logic.)
+
+// WAIT. replace_file_content requires SINGLE CONTIGUOUS BLOCK. 
+// I have changes in:
+// 1. Interface definition (top)
+// 2. Component signature (top)
+// 3. State (top)
+// 4. Family Tab (middle/bottom)
+// 5. Render of nested modal (bottom, outside main div or absolute)
+
+// This spans the whole file. I should use `multi_replace_file_content` or make targeted `replace_file_content` calls. 
+// Since I can't use multi_replace in this turn alongside others easily if I want to be precise? Actually I can.
+// But the prompt says "Do NOT make multiple parallel calls to this tool... for the same file."
+// So I will use `multi_replace_file_content`.
+
+
+// Helper Component for Children List
+const ChildListManager: React.FC<{ value?: string, onChange: (val: string) => void }> = ({ value, onChange }) => {
+    // Parse initial value: try JSON, else treat as text description (legacy support)
+    const [mode, setMode] = useState<'LIST' | 'TEXT'>('LIST');
+    const [childrenList, setChildrenList] = useState<{ id: string, name: string, memberId?: string, birthDate?: string }[]>([]);
+    const [legacyText, setLegacyText] = useState('');
+
+    useEffect(() => {
+        if (!value) {
+            setChildrenList([]);
+            return;
+        }
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+                setChildrenList(parsed);
+                setMode('LIST');
+            } else {
+                setLegacyText(value);
+                setMode('TEXT');
+            }
+        } catch (e) {
+            setLegacyText(value);
+            setMode('TEXT');
+        }
+    }, []); // Run once on mount to init, avoiding loop if we update parent. 
+    // Actually we should sync BUT we are controlling the parent.
+    // Let's rely on internal state and just push updates up.
+
+    const updateParent = (list: typeof childrenList) => {
+        onChange(JSON.stringify(list));
+    };
+
+    const handleAddChild = () => {
+        const newChild = { id: crypto.randomUUID(), name: '' };
+        const newList = [...childrenList, newChild];
+        setChildrenList(newList);
+        updateParent(newList);
+    };
+
+    const handleRemoveChild = (id: string) => {
+        const newList = childrenList.filter(c => c.id !== id);
+        setChildrenList(newList);
+        updateParent(newList);
+    };
+
+    const handleUpdateChild = (id: string, field: string, val: string) => {
+        const newList = childrenList.map(c => c.id === id ? { ...c, [field]: val } : c);
+        setChildrenList(newList);
+        updateParent(newList);
+    };
+
+    // Switch to manual text mode
+    if (mode === 'TEXT') {
+        return (
+            <div>
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400">Filhos (Descrição)</label>
+                    <button onClick={() => { setMode('LIST'); setChildrenList([]); onChange('[]'); }} className="text-xs text-blue-500 hover:underline">
+                        Mudar para Lista Avançada
+                    </button>
+                </div>
+                <textarea
+                    rows={4}
+                    value={legacyText}
+                    onChange={e => { setLegacyText(e.target.value); onChange(e.target.value); }}
+                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="flex justify-between items-center">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400">Filhos</label>
+                <button onClick={handleAddChild} type="button" className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors">
+                    <Plus size={14} /> Adicionar Filho
+                </button>
+            </div>
+
+            {childrenList.length === 0 && (
+                <div className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-lg">
+                    Nenhum filho cadastrado.
+                </div>
+            )}
+
+            <div className="space-y-2">
+                {childrenList.map((child, index) => (
+                    <div key={child.id} className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-100 dark:border-slate-700 flex gap-3 items-start animate-in slide-in-from-bottom-2">
+                        <span className="text-xs text-gray-400 mt-2.5">#{index + 1}</span>
+                        <div className="flex-1 space-y-2">
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <input
+                                        type="text"
+                                        placeholder="Nome do Filho"
+                                        value={child.name}
+                                        onChange={e => handleUpdateChild(child.id, 'name', e.target.value)}
+                                        className="w-full p-2 text-sm rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                                    />
+                                </div>
+                                <div className="w-1/3">
+                                    <input
+                                        type="date"
+                                        value={child.birthDate || ''}
+                                        onChange={e => handleUpdateChild(child.id, 'birthDate', e.target.value)}
+                                        className="w-full p-2 text-sm rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Linked Member Selection for Child */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold whitespace-nowrap">Vínculo:</span>
+                                <div className="flex-1">
+                                    <MemberSelect
+                                        selectedId={child.memberId}
+                                        onSelect={(id, name) => {
+                                            const newList = childrenList.map(c => c.id === child.id ? { ...c, memberId: id, name: name || c.name } : c);
+                                            setChildrenList(newList);
+                                            updateParent(newList);
+                                        }}
+                                        placeholder="Buscar cadastro (opcional)..."
+                                        className="text-xs"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={() => handleRemoveChild(child.id)} type="button" className="text-gray-400 hover:text-red-500 p-1">
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onClose, onSuccess, currentChurchId, initialValues, onSaved }) => {
+    const { addMember, updateMember, data, addMemberRole, removeMemberRole, updateMemberRole, addMemberCategory, removeMemberCategory, updateMemberCategory } = useFinance();
     const [activeTab, setActiveTab] = useState<TabType>('BASIC');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
 
+    // Quick Spouse Creation State
+    const [showSpouseModal, setShowSpouseModal] = useState(false);
+
+    // List Manager State
+    const [managingList, setManagingList] = useState<'ROLES' | 'CATEGORIES' | null>(null);
+
+    const defaultFormValues: Partial<Member> = {
+        type: 'MEMBER',
+        status: 'ACTIVE',
+        churchId: currentChurchId,
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        addressNumber: '',
+        city: '',
+        state: '',
+        birthDate: '', // Date string
+        document: '',
+        rg: '',
+        documentIssuer: '',
+        nationality: 'Brasileira',
+        naturalness: '',
+        profession: '',
+        educationLevel: '',
+        photoUrl: '',
+        spouseId: null,
+        weddingDate: '',
+        children: '',
+        fatherName: '',
+        motherName: '',
+        previousChurch: '',
+        conversionDate: '',
+        baptismHolySpirit: false,
+        entryMethod: '',
+        exitDate: '',
+        exitReason: ''
+    };
+
     // Form State
     const [formData, setFormData] = useState<Partial<Member>>({
-        type: initialType,
-        status: 'ACTIVE',
-        churchId: currentChurchId
+        ...defaultFormValues,
+        type: initialType
     });
 
     useEffect(() => {
         if (member) {
-            setFormData(member);
+            // Apply defaults to ensure we clear previous state for missing keys
+            setFormData({ ...defaultFormValues, ...member });
+        } else if (initialValues) {
+            setFormData(prev => ({ ...defaultFormValues, ...initialValues, type: initialType }));
         } else {
-            setFormData(prev => ({ ...prev, type: initialType })); // Ensure type is set for new
+            setFormData({ ...defaultFormValues, type: initialType });
         }
-    }, [member, initialType]);
+    }, [member, initialType, initialValues]);
 
     const handleChange = (field: keyof Member, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -44,12 +245,41 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.name?.trim()) newErrors.name = 'Nome é obrigatório.';
 
+        // 1. Validate Name
+        if (!formData.name?.trim()) {
+            newErrors.name = 'Nome é obrigatório.';
+        } else {
+            // Check for duplicate name (normalizing spaces)
+            const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+            const normalizedName = normalize(formData.name);
+
+            const duplicateName = data.members?.find(m =>
+                m.id !== formData.id && // Exclude self
+                normalize(m.name) === normalizedName
+            );
+
+            if (duplicateName) {
+                newErrors.name = 'Já existe um membro cadastrado com este nome.';
+            }
+        }
+
+        // 2. Validate Document (CPF)
         if (formData.type === 'SUPPLIER' && formData.document) {
             const cleanDoc = formData.document.replace(/\D/g, '');
             if (cleanDoc.length !== 11 && cleanDoc.length !== 14) {
                 newErrors.document = 'Documento inválido (CPF ou CNPJ).';
+            }
+        }
+
+        // Check for duplicate document if present (for any type)
+        if (formData.document) {
+            const duplicateDoc = data.members?.find(m =>
+                m.id !== formData.id && // Exclude self
+                m.document === formData.document
+            );
+            if (duplicateDoc) {
+                newErrors.document = 'Já existe um cadastro com este CPF/CNPJ.';
             }
         }
 
@@ -75,17 +305,33 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
             } else {
                 await addMember(dataToSave);
             }
-            onSuccess();
+
+            if (onSaved) {
+                onSaved(dataToSave);
+            } else {
+                onSuccess();
+            }
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Erro ao salvar. Verifique o console.');
+            alert(`Erro ao salvar: ${error.message || JSON.stringify(error)}`);
         } finally {
             setLoading(false);
         }
     };
 
     const isMember = formData.type === 'MEMBER';
+
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                handleChange('photoUrl', reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
@@ -100,6 +346,7 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                                 {formData.type === 'MEMBER' ? 'Membro' : formData.type === 'VISITOR' ? 'Visitante' : 'Fornecedor'}
                             </span>
                         </h2>
+
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
                         <X size={24} />
@@ -156,21 +403,47 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
 
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Tipo de Cadastro</label>
-                                <div className="flex gap-4 p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-100 dark:border-slate-700">
+                                <div className="flex p-1 bg-gray-100 dark:bg-slate-700/50 rounded-lg gap-1 border border-gray-200 dark:border-slate-600">
                                     {['MEMBER', 'VISITOR', 'SUPPLIER'].map(t => (
-                                        <label key={t} className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="type"
-                                                checked={formData.type === t}
-                                                onChange={() => handleChange('type', t)}
-                                                className="text-blue-600"
-                                            />
-                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                {t === 'MEMBER' ? 'Membro' : t === 'VISITOR' ? 'Visitante' : 'Fornecedor'}
-                                            </span>
-                                        </label>
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => handleChange('type', t)}
+                                            className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${formData.type === t
+                                                ? 'bg-emerald-500 text-white shadow-sm scale-[1.02]'
+                                                : 'text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-slate-600/50'
+                                                }`}
+                                        >
+                                            {t === 'MEMBER' && <User size={16} />}
+                                            {t === 'VISITOR' && <Heart size={16} />}
+                                            {t === 'SUPPLIER' && <FileText size={16} />}
+                                            {t === 'MEMBER' ? 'Membro' : t === 'VISITOR' ? 'Visitante' : 'Fornecedor'}
+                                        </button>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Categoria de Membro</label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={formData.category || ''}
+                                        onChange={e => handleChange('category', e.target.value)}
+                                        className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {(data.memberCategories || []).map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={() => setManagingList('CATEGORIES')}
+                                        className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
+                                        title="Gerenciar Categorias"
+                                    >
+                                        <Settings size={20} />
+                                    </button>
                                 </div>
                             </div>
 
@@ -272,18 +545,21 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                                     ) : (
                                         <Camera size={32} />
                                     )}
-
                                 </div>
-                                <div>
+                                <div className="flex-1">
                                     <h4 className="font-bold text-gray-800 dark:text-white">Foto do Perfil</h4>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Recomendado: 400x400px</p>
-                                    <input
-                                        type="text"
-                                        placeholder="URL da foto (Cole o link aqui por enquanto)"
-                                        value={formData.photoUrl || ''}
-                                        onChange={e => handleChange('photoUrl', e.target.value)}
-                                        className="text-xs w-full p-2 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700"
-                                    />
+
+                                    <label className="flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors w-fit">
+                                        <Upload size={16} />
+                                        Escolher Imagem
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handlePhotoUpload}
+                                            className="hidden"
+                                        />
+                                    </label>
                                 </div>
                             </div>
 
@@ -416,6 +692,30 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                                 </select>
                             </div>
 
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Cargo Eclesiástico</label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={formData.role || ''}
+                                        onChange={e => handleChange('role', e.target.value)}
+                                        className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {(data.memberRoles || []).map(role => (
+                                            <option key={role} value={role}>{role}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={() => setManagingList('ROLES')}
+                                        className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
+                                        title="Gerenciar Cargos"
+                                    >
+                                        <Settings size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-100 dark:border-slate-700">
                                 <input
                                     type="checkbox"
@@ -457,16 +757,44 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Data de Casamento</label>
-                                <input
-                                    type="date"
-                                    value={formData.weddingDate || ''}
-                                    onChange={e => handleChange('weddingDate', e.target.value)}
-                                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700"
-                                    disabled={formData.maritalStatus === 'SINGLE'}
-                                />
-                            </div>
+                            {(formData.maritalStatus === 'MARRIED' || formData.maritalStatus === 'STABLE_UNION') && (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Cônjuge (Vínculo Membro)</label>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <MemberSelect
+                                                    onSelect={(id, name) => handleChange('spouseId', id)}
+                                                    selectedId={formData.spouseId}
+                                                    excludeId={formData.id}
+                                                    placeholder="Buscar cônjuge no cadastro..."
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => setShowSpouseModal(true)}
+                                                type="button"
+                                                title="Cadastrar Cônjuge Agora"
+                                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                                            >
+                                                <Plus size={20} />
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                            Se o cônjuge já for membro, busque. Se não, clique em <strong className="text-blue-500">+</strong> para cadastrar.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Data de Casamento</label>
+                                        <input
+                                            type="date"
+                                            value={formData.weddingDate || ''}
+                                            onChange={e => handleChange('weddingDate', e.target.value)}
+                                            className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700"
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Nome do Pai</label>
@@ -488,14 +816,10 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                                 />
                             </div>
 
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Filhos (Nomes e Idades)</label>
-                                <textarea
-                                    rows={4}
-                                    value={formData.children || ''}
-                                    onChange={e => handleChange('children', e.target.value)}
-                                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700"
-                                    placeholder="Ex: João (10 anos), Maria (5 anos)..."
+                            <div className="md:col-span-2 border-t border-gray-100 dark:border-slate-700 pt-4">
+                                <ChildListManager
+                                    value={formData.children}
+                                    onChange={(val) => handleChange('children', val)}
                                 />
                             </div>
                         </div>
@@ -521,6 +845,57 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                     </button>
                 </div>
             </div>
+            {/* NESTED SPOUSE MODAL */}
+            {showSpouseModal && (
+                <div className="fixed inset-0 z-[60]">
+                    <MemberForm
+                        type="MEMBER"
+                        currentChurchId={currentChurchId}
+                        onClose={() => setShowSpouseModal(false)}
+                        onSuccess={() => { }} // Not used because we use onSaved
+                        initialValues={{
+                            ...formData, // Copy data from current form
+                            id: undefined, // IMPORTANT: New ID will be generated
+                            name: '', // Reset name
+                            gender: formData.gender === 'MALE' ? 'FEMALE' : 'MALE', // Guess opposite gender
+                            maritalStatus: formData.maritalStatus,
+                            weddingDate: formData.weddingDate,
+                            spouseId: formData.id, // Reciprocal link (if current has ID)
+                            // Clear personal stuff
+                            birthDate: undefined,
+                            document: '',
+                            rg: '',
+                            phone: formData.phone,
+                            email: '',
+                        }}
+                        onSaved={(newSpouse) => {
+                            handleChange('spouseId', newSpouse.id);
+                            setShowSpouseModal(false);
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* DATA LIST MANAGERS */}
+            {managingList === 'CATEGORIES' && (
+                <DataListManager
+                    title="Categorias de Membros"
+                    items={data.memberCategories || []}
+                    onAdd={addMemberCategory}
+                    onRemove={removeMemberCategory}
+                    onClose={() => setManagingList(null)}
+                />
+            )}
+
+            {managingList === 'ROLES' && (
+                <DataListManager
+                    title="Cargos Eclesiásticos"
+                    items={data.memberRoles || []}
+                    onAdd={addMemberRole}
+                    onRemove={removeMemberRole}
+                    onClose={() => setManagingList(null)}
+                />
+            )}
         </div>
     );
 };

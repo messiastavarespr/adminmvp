@@ -138,6 +138,10 @@ export interface Member {
   spouseId?: string;
   weddingDate?: string;
   children?: string; // JSON string or text description for now
+
+  // Secretariat Fields - Organization
+  role?: string; // Cargo Ecclesiastico
+  category?: string; // Categoria de Membro
 }
 
 export interface AssetCategory {
@@ -262,6 +266,10 @@ export interface AppData {
   auditLogs: AuditLog[];
   notifications: Notification[];
   theme: 'light' | 'dark';
+
+  // Dynamic Lists
+  memberRoles: string[];
+  memberCategories: string[];
 }
 
 // Bank Reconciliation Types

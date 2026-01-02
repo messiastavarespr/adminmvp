@@ -9,6 +9,7 @@ import BudgetManager from './BudgetManager';
 import BackupRestore from './BackupRestore';
 import SettingsGeneral from './SettingsGeneral';
 import SettingsDangerZone from './SettingsDangerZone';
+import SettingsRegistries from './SettingsRegistries';
 
 interface SettingsProps {
    data: AppData;
@@ -16,7 +17,7 @@ interface SettingsProps {
    currentUser: User | null;
 }
 
-type SettingsTab = 'GENERAL' | 'BUDGETS' | 'USERS' | 'BACKUP';
+type SettingsTab = 'GENERAL' | 'BUDGETS' | 'USERS' | 'BACKUP' | 'REGISTRIES';
 
 const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) => {
    const [activeTab, setActiveTab] = useState<SettingsTab>('GENERAL');
@@ -58,6 +59,10 @@ const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) 
                   <Users size={16} /> Usuários
                </button>
 
+               <button onClick={() => setActiveTab('REGISTRIES')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'REGISTRIES' ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
+                  <Archive size={16} /> Cadastros
+               </button>
+
                {isActiveMaster && (
                   <button onClick={() => setActiveTab('BACKUP')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'BACKUP' ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
                      <Archive size={16} /> Backup
@@ -85,6 +90,10 @@ const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) 
 
             {activeTab === 'BUDGETS' && (
                <BudgetManager budgets={data.budgets} categories={data.categories} transactions={data.transactions} currentChurchId={currentUser?.churchId || ''} currentUser={currentUser!} onUpdate={onDataChange} />
+            )}
+
+            {activeTab === 'REGISTRIES' && (
+               <SettingsRegistries />
             )}
 
             {activeTab === 'BACKUP' && (

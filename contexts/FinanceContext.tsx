@@ -60,6 +60,14 @@ interface FinanceContextProps {
   updateChurch: (c: Church) => void;
   deleteChurch: (id: string) => void;
 
+  // Member Roles & Categories Management
+  addMemberRole: (role: string) => void;
+  removeMemberRole: (role: string) => void;
+  updateMemberRole: (oldRole: string, newRole: string) => void; // NEW
+  addMemberCategory: (cat: string) => void;
+  removeMemberCategory: (cat: string) => void;
+  updateMemberCategory: (oldCat: string, newCat: string) => void; // NEW
+
   addUser: (u: User) => void;
   updateUser: (u: User) => void;
   deleteUser: (id: string) => void;
@@ -102,6 +110,8 @@ const initialData: AppData = {
   accounts: [],
   users: [],
   members: [],
+  memberRoles: ['Pastor', 'Presbítero', 'Diácono', 'Cooperador', 'Líder de Departamento', 'Músico', 'Professor EBD', 'Zelador', 'Secretário', 'Tesoureiro'], // Defaults
+  memberCategories: ['Membro Comungante', 'Membro Não Comungante', 'Congregado', 'Criança', 'Visitante Frequente'], // Defaults
   churches: [],
   budgets: [],
   auditLogs: [],
@@ -353,12 +363,34 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       addChurch,
       updateChurch,
       deleteChurch,
+      addMemberRole: (role) => setData(prev => ({ ...prev, memberRoles: [...(prev.memberRoles || []), role] })),
+      removeMemberRole: (role) => setData(prev => ({ ...prev, memberRoles: (prev.memberRoles || []).filter(r => r !== role) })),
+      updateMemberRole: (oldRole, newRole) => setData(prev => ({
+        ...prev,
+        memberRoles: (prev.memberRoles || []).map(r => r === oldRole ? newRole : r),
+        members: prev.members.map(m => m.role === oldRole ? { ...m, role: newRole } : m)
+      })),
+      addMemberCategory: (cat) => setData(prev => ({ ...prev, memberCategories: [...(prev.memberCategories || []), cat] })),
+      removeMemberCategory: (cat) => setData(prev => ({ ...prev, memberCategories: (prev.memberCategories || []).filter(c => c !== cat) })),
+      updateMemberCategory: (oldCat, newCat) => setData(prev => ({
+        ...prev,
+        memberCategories: (prev.memberCategories || []).map(c => c === oldCat ? newCat : c),
+        members: prev.members.map(m => m.category === oldCat ? { ...m, category: newCat } : m)
+      })),
       addUser,
       updateUser,
       deleteUser,
       addMember,
       updateMember,
       deleteMember,
+      mergeMembers: async (fromId: string, toId: string) => {
+        if (currentUser?.role !== UserRole.ADMIN && currentUser?.role !== UserRole.PASTOR && currentUser?.role !== UserRole.SECRETARY) {
+          throw new Error('Permissão negada.');
+        }
+        await supabaseService.mergeMembers(fromId, toId);
+        await supabaseService.logAction(currentUser, 'MERGE', 'MEMBER', `Unificou membros: ${fromId} -> ${toId}`);
+        refreshData();
+      },
       setBudget,
       deleteBudget,
       addAccountingAccount,

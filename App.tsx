@@ -79,6 +79,13 @@ function AppContent() {
   const [editingSchedule, setEditingSchedule] = useState<ScheduledTransaction | null>(null);
   const [systemMode, setSystemMode] = useState<'FINANCE' | 'SECRETARY'>('FINANCE');
 
+  // Sync System Mode with User Role
+  useEffect(() => {
+    if (currentUser?.role === UserRole.SECRETARY) {
+      setSystemMode('SECRETARY');
+    }
+  }, [currentUser]);
+
   // --- Maintenance Mode Logic ---
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false); // DISABLED - Fixing Access
 

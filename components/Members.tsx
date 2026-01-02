@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Member, UserRole } from '../types';
-import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter } from './ui/Icons';
+import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter, ArrowLeftRight } from './ui/Icons';
+import MergeMembersModal from './MergeMembersModal';
 import { useFinance } from '../contexts/FinanceContext';
 import ConfirmationModal from './ConfirmationModal';
 import SearchBox from './ui/SearchBox';
@@ -29,6 +30,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   const [showBirthdays, setShowBirthdays] = useState(false);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [mergingMember, setMergingMember] = useState<Member | null>(null);
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [generatingCardMember, setGeneratingCardMember] = useState<Member | null>(null);
@@ -82,9 +84,14 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
 
   const handleDelete = async () => {
     if (deleteId) {
-      await deleteMember(deleteId);
-      onUpdate();
-      setDeleteId(null);
+      try {
+        await deleteMember(deleteId);
+        onUpdate();
+        setDeleteId(null);
+      } catch (error) {
+        console.error("Erro ao excluir:", error);
+        alert("Não foi possível excluir o cadastro. Verifique se existem lançamentos financeiros (Dízimos/Ofertas) ou vínculos familiares associados a este membro.");
+      }
     }
   };
 
@@ -197,6 +204,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
       {/* MEMBER FORM MODAL */}
       {showForm && (
         <MemberForm
+          key={editingMember?.id || 'new'}
           member={editingMember}
           type={activeTab === 'MEMBERS' ? 'MEMBER' : 'SUPPLIER'}
           currentChurchId={currentChurchId}
@@ -259,6 +267,9 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                       </button>
                       {canEdit && (
                         <>
+                          <button onClick={() => setMergingMember(m)} className="p-1.5 text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors" title="Unificar Cadastros">
+                            <ArrowLeftRight size={16} />
+                          </button>
                           <button onClick={() => handleOpenForm(m)} className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors" title="Editar">
                             <Edit2 size={16} />
                           </button>
@@ -352,6 +363,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                             <button onClick={() => setViewingMember(m)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Eye size={16} /></button>
                             {canEdit && (
                               <>
+                                <button onClick={() => setMergingMember(m)} className="p-1.5 text-purple-500 hover:bg-purple-50 rounded" title="Unificar Cadastros"><ArrowLeftRight size={16} /></button>
                                 <button onClick={() => handleOpenForm(m)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded"><Edit2 size={16} /></button>
                                 <button onClick={() => setDeleteId(m.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
                               </>
@@ -382,6 +394,13 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
         isOpen={!!viewingMember}
         onClose={() => setViewingMember(null)}
         member={viewingMember}
+      />
+
+      <MergeMembersModal
+        isOpen={!!mergingMember}
+        sourceMember={mergingMember}
+        onClose={() => setMergingMember(null)}
+        onSuccess={() => { refreshData(); onUpdate(); }}
       />
 
       <ImportMembersModal

@@ -92,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, systemMode = 'FINANC
       title: 'Cadastros',
       items: [
         { path: '/members', label: 'Pessoas', icon: UserCheck },
-        { path: '/registries', label: 'Categorias & Contas', icon: Database, roles: ['MASTER', 'ADMIN', 'TREASURER', 'PASTOR'] },
+        { path: '/registries', label: 'Tabelas Auxiliares', icon: Database, roles: ['MASTER', 'ADMIN', 'TREASURER', 'PASTOR', 'SECRETARY'] },
       ]
     },
     {

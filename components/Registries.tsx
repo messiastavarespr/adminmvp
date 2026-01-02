@@ -11,6 +11,7 @@ import {
 import { useFinance } from '../contexts/FinanceContext';
 import ChartOfAccounts from './ChartOfAccounts';
 import { ICON_MAP } from './ui/IconMap';
+import SettingsRegistries from './SettingsRegistries';
 
 // Reusing types locally for this component
 type RegistryTab = 'CATEGORY' | 'ACCOUNT' | 'COST_CENTER' | 'FUND' | 'CHURCH' | 'CHART_OF_ACCOUNTS' | 'ASSET_CATEGORY';
@@ -64,6 +65,18 @@ export default function Registries() {
             reader.readAsDataURL(file);
         }
     };
+
+    // --- SECRETARY VIEW ---
+    if (currentUser?.role === UserRole.SECRETARY) {
+        return (
+            <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-900 overflow-hidden p-6">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-6">
+                    <Database className="text-blue-600" /> Cadastros Auxiliares
+                </h1>
+                <SettingsRegistries />
+            </div>
+        );
+    }
 
     // --- DATA HELPERS ---
     const getEntities = () => {
