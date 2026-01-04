@@ -81,7 +81,10 @@ function AppContent() {
 
   const [isScheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduledTransaction | null>(null);
-  const [systemMode, setSystemMode] = useState<'FINANCE' | 'SECRETARY'>('FINANCE');
+  const [systemMode, setSystemMode] = useState<'FINANCE' | 'SECRETARY'>(() => {
+    const stored = localStorage.getItem('mvp_system_mode');
+    return (stored === 'FINANCE' || stored === 'SECRETARY') ? stored : 'FINANCE';
+  });
 
   const [showSecretaryPopup, setShowSecretaryPopup] = useState(false);
 
@@ -89,6 +92,7 @@ function AppContent() {
   useEffect(() => {
     if (currentUser?.role === UserRole.SECRETARY) {
       setSystemMode('SECRETARY');
+      localStorage.setItem('mvp_system_mode', 'SECRETARY');
     }
   }, [currentUser]);
 
@@ -134,6 +138,7 @@ function AppContent() {
 
   const handleLogin = (user: User, mode: 'FINANCE' | 'SECRETARY') => {
     setSystemMode(mode);
+    localStorage.setItem('mvp_system_mode', mode);
     login(user);
   };
 
