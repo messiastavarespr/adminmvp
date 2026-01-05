@@ -201,10 +201,11 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
           });
         }
       } else {
-        const finalPass = passwordHash || await hashPassword('123456');
+        const plainPass = password.trim() || '123456';
+        const finalPassHash = passwordHash || await hashPassword(plainPass);
 
         const newUser = {
-          id: crypto.randomUUID(),
+          id: crypto.randomUUID(), // Will be overwritten by Auth ID
           name,
           email,
           role,
@@ -212,13 +213,13 @@ const UsersManager: React.FC<UsersProps> = ({ users, churches, onUpdate }) => {
           observations,
           avatarInitials: initials,
           avatarUrl,
-          password: finalPass,
+          password: finalPassHash, // Store Hash in DB (legacy/backup)
           permissions: finalPermissions,
           allowedChurches: finalAllowedChurches,
           accessMvpSec,
           accessMvpFin
         };
-        await addUser(newUser);
+        await addUser(newUser, plainPass); // Pass Plain Password for Auth Creation
       }
 
       onUpdate();

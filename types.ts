@@ -207,6 +207,7 @@ export interface Transaction {
   relatedTransactionId?: string;
   churchId: string;
   reconciled?: boolean;
+  createdBy?: string;
 }
 
 export interface ScheduledTransaction {

@@ -69,7 +69,7 @@ interface FinanceContextProps {
   removeMemberCategory: (cat: string) => void;
   updateMemberCategory: (oldCat: string, newCat: string) => void; // NEW
 
-  addUser: (u: User) => void;
+  addUser: (u: User, plainPassword?: string) => void;
   updateUser: (u: User) => void;
   deleteUser: (id: string) => void;
 
@@ -299,6 +299,10 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const addTransaction = async (t: Transaction) => {
+    // Inject Current User Name
+    if (currentUser && !t.createdBy) {
+      t.createdBy = currentUser.name;
+    }
     await supabaseService.addTransaction(t);
     refreshData();
   };
@@ -378,7 +382,7 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   const updateChurch = async (c: Church) => { await supabaseService.updateChurch(c); refreshData(); };
   const deleteChurch = async (id: string) => { await supabaseService.deleteChurch(id); refreshData(); };
 
-  const addUser = async (u: User) => { await supabaseService.addUser(u); refreshData(); };
+  const addUser = async (u: User, plainPassword?: string) => { await supabaseService.addUser(u, plainPassword); refreshData(); };
   const updateUser = async (u: User) => { await supabaseService.updateUser(u); refreshData(); };
   const deleteUser = async (id: string) => { await supabaseService.deleteUser(id); refreshData(); };
 

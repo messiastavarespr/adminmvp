@@ -78,6 +78,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
       Categoria: getCategoryName(t.categoryId),
       Conta: getAccountName(t.accountId),
       'Fundo/Projeto': getFundName(t.fundId),
+      'Responsável': t.createdBy || '-',
       'Centro de Custo': costCenters.find(cc => cc.id === t.costCenterId)?.name || 'Geral',
       Valor: t.amount,
       Tipo: t.type === TransactionType.INCOME ? 'Entrada' : (t.type === TransactionType.EXPENSE ? 'Saída' : 'Transferência'),
@@ -161,6 +162,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                     <th className="px-6 py-3 whitespace-nowrap">Membro / Fornecedor</th>
                     <th className="px-6 py-3 whitespace-nowrap">Categoria</th>
                     <th className="px-6 py-3 whitespace-nowrap">Fundo</th>
+                    <th className="px-6 py-3 whitespace-nowrap">Responsável</th>
                     <th className="px-6 py-3 text-right whitespace-nowrap w-[150px]">Valor</th>
                     <th className="px-6 py-3 text-center whitespace-nowrap w-[120px]">Ações</th>
                   </tr>
@@ -172,6 +174,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[150px]" title={t.memberOrSupplierName}>{t.memberOrSupplierName || '-'}</td>
                     <td className="px-6 py-4"><span className="px-2 py-1 bg-gray-100 dark:bg-slate-600 rounded-full text-xs text-gray-600 dark:text-gray-300 font-medium">{getCategoryName(t.categoryId)}</span></td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{getFundName(t.fundId)}</td>
+                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{t.createdBy || '-'}</td>
                     <td className={`px-6 py-4 text-right font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
