@@ -540,7 +540,7 @@ export const supabaseService = {
         const { error } = await supabase.from('users').update(payload).eq('id', id);
         if (error) throw error;
     },
-    addUser: async (u: User) => {
+    addUser: async (u: User, plainPassword?: string) => {
         // STRATEGY: Create Auth User using a temporary client to avoid logging out the current admin
         const { createClient } = await import('@supabase/supabase-js');
 
@@ -556,12 +556,12 @@ export const supabaseService = {
             }
         );
 
-        if (!u.email || !u.password) throw new Error('Email e senha são obrigatórios para criar usuário.');
+        if (!u.email || !plainPassword) throw new Error('Email e senha são obrigatórios para criar usuário.');
 
         // 1. Create Auth User
         const { data: authData, error: authError } = await tempClient.auth.signUp({
             email: u.email,
-            password: u.password,
+            password: plainPassword,
             options: {
                 data: {
                     name: u.name,
