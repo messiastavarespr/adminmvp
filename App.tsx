@@ -30,6 +30,7 @@ const Assets = React.lazy(() => import('./components/Assets'));
 const Registries = React.lazy(() => import('./components/Registries'));
 // Import Profile Page (Not Lazy for now or Lazy is fine)
 import { ProfilePage } from './components/ProfilePage';
+import WarningModal from './components/warning/WarningModal';
 
 const TithesEntry = React.lazy(() => import('./components/TithesEntry').then(module => ({ default: module.TithesEntry }))); // Handle named export if any, checking usage
 // Note: TithesEntry was imported as named { TithesEntry } in previous App.tsx. 
@@ -298,6 +299,7 @@ function AppContent() {
     <div className="flex min-h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
       <Toast notifications={data.notifications} onDismiss={() => { }} />
       <OnboardingTour />
+      <WarningModal />
 
       {isSidebarOpen && (
         <div

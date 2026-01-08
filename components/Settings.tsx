@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppData, User, UserRole } from '../types';
 import {
-   Settings as SettingsIcon, Users, PieChart, Archive
+   Settings as SettingsIcon, Users, PieChart, Archive, AlertTriangle
 } from './ui/Icons';
 import UsersManager from './Users';
 import BudgetManager from './BudgetManager';
@@ -10,6 +10,7 @@ import BackupRestore from './BackupRestore';
 import SettingsGeneral from './SettingsGeneral';
 import SettingsDangerZone from './SettingsDangerZone';
 import SettingsRegistries from './SettingsRegistries';
+import AdminWarningPanel from './warning/AdminWarningPanel';
 
 interface SettingsProps {
    data: AppData;
@@ -17,7 +18,7 @@ interface SettingsProps {
    currentUser: User | null;
 }
 
-type SettingsTab = 'GENERAL' | 'BUDGETS' | 'USERS' | 'BACKUP' | 'REGISTRIES';
+type SettingsTab = 'GENERAL' | 'BUDGETS' | 'USERS' | 'BACKUP' | 'REGISTRIES' | 'WARNINGS';
 
 const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) => {
    const [activeTab, setActiveTab] = useState<SettingsTab>('GENERAL');
@@ -68,6 +69,12 @@ const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) 
                      <Archive size={16} /> Backup
                   </button>
                )}
+
+               {canManageSettings && (
+                  <button onClick={() => setActiveTab('WARNINGS')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${activeTab === 'WARNINGS' ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
+                     <AlertTriangle size={16} /> Avisos
+                  </button>
+               )}
             </div>
          </div>
 
@@ -98,6 +105,10 @@ const Settings: React.FC<SettingsProps> = ({ data, onDataChange, currentUser }) 
 
             {activeTab === 'BACKUP' && (
                <BackupRestore onImport={onDataChange} />
+            )}
+
+            {activeTab === 'WARNINGS' && (
+               <AdminWarningPanel />
             )}
 
          </div>

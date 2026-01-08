@@ -292,3 +292,19 @@ export interface ReconciliationMatch {
   sysTx?: Transaction;
   matchType: 'EXACT' | 'PROBABLE' | 'NONE';
 }
+
+export interface SystemWarning {
+  id: string;
+  title: string;
+  message: string;
+  active: boolean;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface WarningRead {
+  id: string;
+  user_id: string;
+  warning_id: string;
+  read_at: string;
+}
