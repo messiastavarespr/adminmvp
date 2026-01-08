@@ -6,7 +6,7 @@ export const warningService = {
     async fetchActiveWarnings(): Promise<SystemWarning[]> {
         const { data, error } = await supabase
             .from('system_warnings')
-            .select('*')
+            .select('*, users:public.users(name)')
             .eq('active', true)
             .order('created_at', { ascending: false });
 
@@ -14,7 +14,7 @@ export const warningService = {
             console.error('Error fetching system warnings:', error);
             throw error;
         }
-        return data || [];
+        return (data as unknown as SystemWarning[]) || [];
     },
 
     // Fetch IDs of warnings read by the specific user

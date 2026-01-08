@@ -66,6 +66,11 @@ const WarningModal: React.FC = () => {
                     <div className="text-gray-600 dark:text-gray-300 mb-8 text-left max-h-60 overflow-y-auto whitespace-pre-wrap leading-relaxed">
                         {activeWarning.message}
                     </div>
+                    {activeWarning.users?.name && (
+                        <div className="text-xs text-gray-400 text-right mb-4 italic">
+                            Enviado por: {activeWarning.users.name}
+                        </div>
+                    )}
 
                     {/* Footer / Button */}
                     <button

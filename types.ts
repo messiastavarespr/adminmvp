@@ -300,6 +300,7 @@ export interface SystemWarning {
   active: boolean;
   created_at: string;
   created_by?: string;
+  users?: { name: string };
 }
 
 export interface WarningRead {

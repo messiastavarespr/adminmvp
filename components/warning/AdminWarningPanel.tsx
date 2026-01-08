@@ -128,7 +128,7 @@ const AdminWarningPanel: React.FC = () => {
                                     </h4>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">{w.message}</p>
                                     <span className="text-xs text-gray-400 mt-2 block flex items-center gap-1">
-                                        Created: {new Date(w.created_at).toLocaleDateString()}
+                                        Created: {new Date(w.created_at).toLocaleDateString()} • Por: {w.users?.name || 'Sistema'}
                                     </span>
                                 </div>
                                 <button
