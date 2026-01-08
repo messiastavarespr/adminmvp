@@ -50,6 +50,7 @@ const AdminWarningPanel: React.FC = () => {
             fetchWarnings();
         } catch (error) {
             console.error('Error deactivating warning:', error);
+            alert('Erro ao excluir aviso.');
         }
     };
 
