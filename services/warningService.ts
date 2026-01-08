@@ -33,6 +33,7 @@ export const warningService = {
 
     // Mark a warning as read for a user
     async markWarningAsRead(warningId: string, userId: string): Promise<void> {
+        console.log(`Attempting to mark warning ${warningId} as read for user ${userId}`);
         const { error } = await supabase
             .from('warning_reads')
             .insert([
@@ -40,11 +41,24 @@ export const warningService = {
             ]);
 
         if (error) {
-            // Ignore duplicate key error if user already clicked/read multiple times quickly
-            if (error.code !== '23505') {
-                console.error('Error marking warning as read:', error);
-                throw error;
+            // Check for PostgREST error object structure
+            // 23505 = Unique Violation (Postgres)
+            // 409 = Conflict (HTTP Status)
+            const isDuplicate =
+                error.code === '23505' ||
+                (error as any).status === 409 ||
+                error.message?.includes('duplicate key');
+
+            if (isDuplicate) {
+                console.log('Warning already marked as read (treated as success).');
+                // We return silently so the UI acts as if it succeeded (closing the modal)
+                return;
             }
+
+            console.error('Error marking warning as read:', error);
+            throw error;
+        } else {
+            console.log('Successfully marked warning as read.');
         }
     },
 
