@@ -328,6 +328,9 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const addScheduled = async (s: ScheduledTransaction) => {
+    if (currentUser && !s.createdBy) {
+      s.createdBy = currentUser.name;
+    }
     await supabaseService.addScheduled(s);
     refreshData();
   };

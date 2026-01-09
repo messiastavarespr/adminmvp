@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ScheduledTransaction, Category, TransactionType, RecurrenceType, Account, UserRole, CostCenter } from '../types';
-import { CalendarClock, CheckSquare, Trash2, Repeat, Plus, AlertTriangle, Eye, Edit2, X, Landmark, Calendar, ChevronLeft, ChevronRight, ArrowRight, Clock, List as ListIcon, Calendar as CalendarIcon } from './ui/Icons';
+import { CalendarClock, CheckSquare, Trash2, Repeat, Plus, AlertTriangle, Eye, Edit2, X, Landmark, Calendar, ChevronLeft, ChevronRight, ArrowRight, Clock, List as ListIcon, Calendar as CalendarIcon, User } from './ui/Icons';
 import { useFinance } from '../contexts/FinanceContext';
 import ConfirmationModal from './ConfirmationModal';
 import ScheduledDetailsModal from './ScheduledDetailsModal';
@@ -282,7 +282,7 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                             ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 hover:border-red-300'
                             : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-600 hover:border-blue-400'
                           }`}
-                        title={`${item.title} - ${formatter.format(item.amount)}`}
+                        title={`${item.title} - ${formatter.format(item.amount)} ${item.createdBy ? `(Por: ${item.createdBy})` : ''}`}
                       >
                         <div className="flex justify-between items-center gap-1">
                           <span className="truncate font-medium">{item.title}</span>
@@ -409,7 +409,7 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                         )}
 
                         {item.isBankScheduled ? (
-                              <Tooltip content="Esta conta já foi agendada no aplicativo do banco">
+                          <Tooltip content="Esta conta já foi agendada no aplicativo do banco">
                             <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full font-medium border border-emerald-100 dark:border-emerald-800 cursor-help">
                               <Landmark size={10} /> Agendado
                             </span>
@@ -433,6 +433,13 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                       <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
                       {getCategoryName(item.categoryId)}
                     </p>
+
+                    {item.createdBy && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 flex items-center gap-1">
+                        <User size={12} />
+                        {item.createdBy}
+                      </p>
+                    )}
 
                     <div className="flex items-end justify-between mb-4 bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg">
                       <div>

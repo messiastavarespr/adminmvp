@@ -225,6 +225,7 @@ export interface ScheduledTransaction {
   isBankScheduled?: boolean;
   documentUrl?: string; // Link to external document (e.g. Drive, Boleto)
   churchId: string;
+  createdBy?: string;
 }
 
 export interface Budget {
