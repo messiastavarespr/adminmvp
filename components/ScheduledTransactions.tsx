@@ -289,6 +289,13 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                           {overdue && <AlertTriangle size={8} className="text-red-500 shrink-0" />}
                         </div>
                         <div className="font-bold opacity-80">{formatter.format(item.amount)}</div>
+
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className={`w-1.5 h-1.5 rounded-full ${item.isBankScheduled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                          <span className={`text-[9px] ${item.isBankScheduled ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                            {item.isBankScheduled ? 'Agendado' : 'Não agendado'}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
