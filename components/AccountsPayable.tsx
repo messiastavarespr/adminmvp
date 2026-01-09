@@ -23,6 +23,7 @@ interface PayableItem {
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   source: 'TRANSACTION' | 'SCHEDULED';
   paymentDate?: string;
+  isBankScheduled?: boolean;
 }
 
 const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, scheduled, categories, costCenters }) => {
@@ -77,7 +78,8 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
           costCenterName: getCostCenterName(s.costCenterId),
           status: isOverdue ? 'OVERDUE' : 'PENDING',
           source: 'SCHEDULED',
-          paymentDate: undefined
+          paymentDate: undefined,
+          isBankScheduled: s.isBankScheduled
         });
       });
 
@@ -90,7 +92,7 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
   const filteredItems = allItems.filter(item => {
     const dateMatch = item.date >= startDate && item.date <= endDate;
     const statusMatch = statusFilter === 'ALL' || item.status === statusFilter;
-    
+
     // Additional specific payment date filter
     const paymentDateMatch = !specificPaymentDate || (item.paymentDate === specificPaymentDate);
 
@@ -120,16 +122,16 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100);
     doc.text(`Período: ${new Date(startDate).toLocaleDateString('pt-BR')} a ${new Date(endDate).toLocaleDateString('pt-BR')}`, 105, 22, { align: 'center' });
-    
+
     let statusLabel = 'Todos';
     if (statusFilter === 'PAID') statusLabel = 'Pagas';
     if (statusFilter === 'PENDING') statusLabel = 'Pendentes';
     if (statusFilter === 'OVERDUE') statusLabel = 'Vencidas';
-    
+
     if (specificPaymentDate) {
-        statusLabel += ` | Pgto em: ${new Date(specificPaymentDate).toLocaleDateString('pt-BR')}`;
+      statusLabel += ` | Pgto em: ${new Date(specificPaymentDate).toLocaleDateString('pt-BR')}`;
     }
-    
+
     doc.text(`Filtro: ${statusLabel}`, 105, 27, { align: 'center' });
 
     // Table Body
@@ -170,10 +172,10 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
 
     // Summary Section
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-    
+
     doc.setFillColor(245, 245, 245);
     doc.roundedRect(14, finalY, 180, 25, 2, 2, 'F');
-    
+
     doc.setFontSize(10);
     doc.setTextColor(50, 50, 50);
     doc.setFont('helvetica', 'bold');
@@ -181,7 +183,7 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    
+
     doc.text(`Pagas:`, 25, finalY + 16);
     doc.setTextColor(16, 185, 129);
     doc.text(formatter.format(totalPaid), 50, finalY + 16);
@@ -201,7 +203,7 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
 
     doc.setTextColor(30, 41, 59);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL GERAL:`, 130, finalY + 24); 
+    doc.text(`TOTAL GERAL:`, 130, finalY + 24);
     (doc as any).text(formatter.format(totalTotal), 175, finalY + 24, { align: 'right' });
 
     doc.save('contas_a_pagar.pdf');
@@ -219,7 +221,7 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
             Relatório consolidado de despesas pagas e pendentes.
           </p>
         </div>
-        <button 
+        <button
           onClick={handleExportPDF}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm text-sm font-medium"
         >
@@ -230,74 +232,74 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
       {/* Filters */}
       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
         <div>
-           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
-           <div className="relative">
-             <Filter className="absolute left-3 top-2.5 text-gray-400" size={14} />
-             <select
-               value={statusFilter}
-               onChange={(e) => setStatusFilter(e.target.value as PayableStatus)}
-               className="pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500 w-full"
-             >
-               <option value="ALL">Todos</option>
-               <option value="PAID">Pagas</option>
-               <option value="PENDING">Pendentes (A Vencer)</option>
-               <option value="OVERDUE">Vencidas</option>
-             </select>
-           </div>
-        </div>
-        
-        <div>
-           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">De (Vencimento/Pagto)</label>
-           <input 
-            type="date" 
-            value={startDate} 
-            onChange={e => setStartDate(e.target.value)} 
-            className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none"
-           />
-        </div>
-        
-        <div>
-           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Até</label>
-           <input 
-            type="date" 
-            value={endDate} 
-            onChange={e => setEndDate(e.target.value)} 
-            className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none"
-           />
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+          <div className="relative">
+            <Filter className="absolute left-3 top-2.5 text-gray-400" size={14} />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as PayableStatus)}
+              className="pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500 w-full"
+            >
+              <option value="ALL">Todos</option>
+              <option value="PAID">Pagas</option>
+              <option value="PENDING">Pendentes (A Vencer)</option>
+              <option value="OVERDUE">Vencidas</option>
+            </select>
+          </div>
         </div>
 
         <div>
-           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Filtrar Data Pagamento</label>
-           <div className="relative">
-             <Calendar className="absolute left-3 top-2.5 text-gray-400" size={14} />
-             <input 
-              type="date" 
-              value={specificPaymentDate} 
-              onChange={e => setSpecificPaymentDate(e.target.value)} 
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">De (Vencimento/Pagto)</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+            className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Até</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            className="w-full p-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Filtrar Data Pagamento</label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-2.5 text-gray-400" size={14} />
+            <input
+              type="date"
+              value={specificPaymentDate}
+              onChange={e => setSpecificPaymentDate(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
               placeholder="Selecionar data..."
-             />
-           </div>
+            />
+          </div>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
-           <p className="text-xs font-bold text-gray-500 uppercase">Total Geral</p>
-           <p className="text-xl font-bold text-gray-800 dark:text-white">{formatter.format(totalTotal)}</p>
+          <p className="text-xs font-bold text-gray-500 uppercase">Total Geral</p>
+          <p className="text-xl font-bold text-gray-800 dark:text-white">{formatter.format(totalTotal)}</p>
         </div>
         <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30">
-           <p className="text-xs font-bold text-emerald-600 uppercase flex items-center gap-1"><CheckCircle size={12}/> Pagas</p>
-           <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{formatter.format(totalPaid)}</p>
+          <p className="text-xs font-bold text-emerald-600 uppercase flex items-center gap-1"><CheckCircle size={12} /> Pagas</p>
+          <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{formatter.format(totalPaid)}</p>
         </div>
         <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-800/30">
-           <p className="text-xs font-bold text-amber-600 uppercase flex items-center gap-1"><Clock size={12}/> A Vencer</p>
-           <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{formatter.format(totalPending)}</p>
+          <p className="text-xs font-bold text-amber-600 uppercase flex items-center gap-1"><Clock size={12} /> A Vencer</p>
+          <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{formatter.format(totalPending)}</p>
         </div>
         <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-100 dark:border-rose-800/30">
-           <p className="text-xs font-bold text-rose-600 uppercase flex items-center gap-1"><AlertTriangle size={12}/> Vencidas</p>
-           <p className="text-xl font-bold text-rose-700 dark:text-rose-400">{formatter.format(totalOverdue)}</p>
+          <p className="text-xs font-bold text-rose-600 uppercase flex items-center gap-1"><AlertTriangle size={12} /> Vencidas</p>
+          <p className="text-xl font-bold text-rose-700 dark:text-rose-400">{formatter.format(totalOverdue)}</p>
         </div>
       </div>
 
@@ -348,14 +350,30 @@ const AccountsPayable: React.FC<AccountsPayableProps> = ({ transactions, schedul
                         </span>
                       )}
                       {item.status === 'PENDING' && (
-                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          Pendente
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            Pendente
+                          </span>
+                          {item.source === 'SCHEDULED' && typeof item.isBankScheduled !== 'undefined' && (
+                            <span className={`text-[10px] flex items-center gap-1 font-bold ${item.isBankScheduled ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${item.isBankScheduled ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                              {item.isBankScheduled ? 'Agendado' : 'Não agendado'}
+                            </span>
+                          )}
+                        </div>
                       )}
                       {item.status === 'OVERDUE' && (
-                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
-                          Vencido
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">
+                            Vencido
+                          </span>
+                          {item.source === 'SCHEDULED' && typeof item.isBankScheduled !== 'undefined' && (
+                            <span className={`text-[10px] flex items-center gap-1 font-bold ${item.isBankScheduled ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${item.isBankScheduled ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                              {item.isBankScheduled ? 'Agendado' : 'Não agendado'}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-800 dark:text-white">
