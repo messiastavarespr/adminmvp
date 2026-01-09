@@ -293,7 +293,17 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
         setLoading(true);
 
         try {
-            const dataToSave = { ...formData } as Member;
+            // Sanitize Strings: Empty date strings "" cause PG error "invalid input syntax for type date"
+            const sanitize = (val: any) => (val === '' ? null : val);
+
+            const dataToSave = {
+                ...formData,
+                birthDate: sanitize(formData.birthDate),
+                weddingDate: sanitize(formData.weddingDate),
+                conversionDate: sanitize(formData.conversionDate),
+                baptismDate: sanitize(formData.baptismDate),
+                exitDate: sanitize(formData.exitDate)
+            } as Member;
 
             // Auto-generate ID if missing (for new records)
             if (!dataToSave.id) {

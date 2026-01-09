@@ -5,7 +5,7 @@ import { Member, TransactionType } from '../types';
 import { Plus, Trash2, CheckCircle, Search, User, DollarSign, Calendar } from './ui/Icons';
 
 export const TithesEntry: React.FC = () => {
-    const { data, addTransaction } = useFinance();
+    const { data, addTransaction, activeChurchId } = useFinance();
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedAccount, setSelectedAccount] = useState(data.accounts[0]?.id || '');
     const [searchTerm, setSearchTerm] = useState('');
@@ -27,13 +27,35 @@ export const TithesEntry: React.FC = () => {
     }, [data.members, searchTerm]);
 
     const handleAdd = () => {
-        if (!selectedMember || !amount) return;
+        let memberToAdd = selectedMember;
+
+        // Tenta encontrar por nome exato se não estiver selecionado
+        if (!memberToAdd && searchTerm) {
+            const exactMatch = data.members.find(m => m.name.toLowerCase() === searchTerm.toLowerCase().trim());
+            if (exactMatch) {
+                memberToAdd = exactMatch;
+            }
+        }
+
+        if (!memberToAdd) {
+            alert("Por favor, selecione um membro da lista ou digite o nome completo exato.");
+            return;
+        }
+
+        if (!amount) {
+            alert("Por favor, informe o valor.");
+            return;
+        }
+
         const val = parseFloat(amount.replace(',', '.')); // Simple PT-BR handler
-        if (!val || val <= 0) return;
+        if (!val || val <= 0) {
+            alert("Valor inválido.");
+            return;
+        }
 
         setBatchList(prev => [{
-            memberId: selectedMember.id,
-            memberName: selectedMember.name,
+            memberId: memberToAdd!.id,
+            memberName: memberToAdd!.name,
             amount: val
         }, ...prev]);
 
@@ -54,15 +76,29 @@ export const TithesEntry: React.FC = () => {
             alert("Selecione uma conta de destino.");
             return;
         }
+        if (!date) {
+            alert("Por favor, selecione a data do culto.");
+            return;
+        }
+
+        if (!titheCategory) {
+            alert("Erro de Configuração: Nenhuma categoria de 'Dízimo' ou 'Entrada' encontrada. Cadastre uma categoria primeiro.");
+            return;
+        }
+
+        // Validation for Church ID (safeguard)
+        const targetChurchId = activeChurchId || data.churches[0]?.id;
+        if (!targetChurchId) {
+            alert("Erro: Nenhuma igreja selecionada. Faça login novamente ou selecione uma igreja.");
+            return;
+        }
 
         try {
             // Process all transactions
-            // Ideally this should be a batch operation in Context, but loop is fine for MVP
-            const today = new Date().toISOString(); // or use selected 'date'
-
-            // We use Promise.all to ensure we wait, but Context usually updates optimistically or fast.
-            // Ideally we'd have addTransactionsBatch but addTransaction is fine.
             for (const item of batchList) {
+                // Find default fund (General)
+                const defaultFund = data.funds.find(f => f.isSystemDefault || f.name.includes('Geral'))?.id || data.funds[0]?.id;
+
                 await addTransaction({
                     id: crypto.randomUUID(),
                     description: `Dízimo - ${item.memberName}`,
@@ -71,17 +107,19 @@ export const TithesEntry: React.FC = () => {
                     type: TransactionType.INCOME,
                     categoryId: titheCategory,
                     accountId: selectedAccount,
-                    memberId: item.memberId,
-                    churchId: data.churches[0]?.id || '', // Should use active church
-                    status: 'COMPLETED'
+                    fundId: defaultFund, // Mandatory
+                    memberOrSupplierId: item.memberId,
+                    memberOrSupplierName: item.memberName,
+                    churchId: targetChurchId,
+                    isPaid: true // Replaces 'status'
                 } as any);
             }
 
             alert(`${batchList.length} dízimos lançados com sucesso!`);
             setBatchList([]);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Erro ao processar lote.");
+            alert(`Erro ao processar lote: ${error.message || JSON.stringify(error)}`);
         }
     };
 
