@@ -409,8 +409,8 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
                         )}
 
                         {item.isBankScheduled ? (
-                          <Tooltip content="Esta conta já foi agendada no aplicativo do banco">
-                            <span className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-full font-medium border border-indigo-100 dark:border-indigo-800 cursor-help">
+                              <Tooltip content="Esta conta já foi agendada no aplicativo do banco">
+                            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full font-medium border border-emerald-100 dark:border-emerald-800 cursor-help">
                               <Landmark size={10} /> Agendado
                             </span>
                           </Tooltip>
