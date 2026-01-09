@@ -91,7 +91,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           setAmount('');
           setDescription('');
           setCategoryId('');
-          setCostCenterId('');
+
+          const defaultCC = costCenters.find(c => c.name.toLowerCase().includes('sede') || c.name.toLowerCase().includes('geral / sede'));
+          setCostCenterId(defaultCC ? defaultCC.id : '');
 
           const defaultFund = funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
           setFundId(defaultFund?.id || ''); // Default to General/Unrestricted

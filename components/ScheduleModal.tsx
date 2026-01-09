@@ -71,7 +71,8 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
         setAmount('');
         setDueDate(getLocalDate());
         setCategoryId('');
-        setCostCenterId('');
+        const defaultCC = costCenters.find(c => c.name.toLowerCase().includes('sede') || c.name.toLowerCase().includes('geral / sede'));
+        setCostCenterId(defaultCC ? defaultCC.id : '');
         setFundId(funds[0]?.id || '');
         setRecurrence(RecurrenceType.NONE);
         setIsBankScheduled(false);
