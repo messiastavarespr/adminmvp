@@ -377,7 +377,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1"><UserCheck size={12} /> {type === TransactionType.INCOME ? 'Membro' : 'Fornecedor'} (Opcional)</label>
                 <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none">
                   <option value="">-- Avulso --</option>
-                  {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  {members
+                    .filter(m => type === TransactionType.EXPENSE ? m.type === 'SUPPLIER' : true)
+                    .map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
             </>

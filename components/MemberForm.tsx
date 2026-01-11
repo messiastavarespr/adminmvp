@@ -434,27 +434,42 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Categoria de Membro</label>
-                                <div className="flex gap-2">
-                                    <select
-                                        value={formData.category || ''}
-                                        onChange={e => handleChange('category', e.target.value)}
-                                        className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {(data.memberCategories || []).map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => setManagingList('CATEGORIES')}
-                                        className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
-                                        title="Gerenciar Categorias"
-                                    >
-                                        <Settings size={20} />
-                                    </button>
-                                </div>
+                                {formData.type === 'SUPPLIER' ? (
+                                    <>
+                                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">CNPJ</label>
+                                        <input
+                                            type="text"
+                                            value={formData.document || ''}
+                                            onChange={e => handleChange('document', e.target.value)}
+                                            className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
+                                            placeholder="00.000.000/0000-00"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Categoria de Membro</label>
+                                        <div className="flex gap-2">
+                                            <select
+                                                value={formData.category || ''}
+                                                onChange={e => handleChange('category', e.target.value)}
+                                                className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
+                                            >
+                                                <option value="">Selecione...</option>
+                                                {(data.memberCategories || []).map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => setManagingList('CATEGORIES')}
+                                                className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
+                                                title="Gerenciar Categorias"
+                                            >
+                                                <Settings size={20} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             <div>
