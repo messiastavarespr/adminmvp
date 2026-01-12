@@ -39,6 +39,7 @@ export default function Registries() {
     const [entityInitialBal, setEntityInitialBal] = useState('');
     const [newCatAccCode, setNewCatAccCode] = useState('');
     const [newAccAccCode, setNewAccAccCode] = useState('');
+    const [entityTargetAmount, setEntityTargetAmount] = useState('');
 
     // Church Specific States
     const [churchType, setChurchType] = useState<'HEADQUARTERS' | 'BRANCH'>('BRANCH');
@@ -115,6 +116,7 @@ export default function Registries() {
         setChurchLogo('');
         setChurchType('BRANCH');
         setFundType('RESTRICTED');
+        setEntityTargetAmount('');
         setEntityIcon('');
         setIsEditingEntity(false);
     };
@@ -134,6 +136,7 @@ export default function Registries() {
         if (activeTab === 'FUND') {
             setEntityDesc(item.description || '');
             setFundType(item.type || 'RESTRICTED');
+            setEntityTargetAmount(item.targetAmount?.toString() || '');
         }
 
         if (activeTab === 'CHURCH') {
@@ -234,7 +237,7 @@ export default function Registries() {
                 const cc: any = { id: entityId || genId(), name: entityName, churchId: currentChurchId! };
                 if (entityId) await updateCostCenter(cc); else await addCostCenter(cc);
             } else if (activeTab === 'FUND') {
-                const fund: any = { id: entityId || genId(), name: entityName, description: entityDesc, type: fundType, churchId: currentChurchId! };
+                const fund: any = { id: entityId || genId(), name: entityName, description: entityDesc, type: fundType, churchId: currentChurchId!, targetAmount: parseFloat(entityTargetAmount) || 0 };
                 if (entityId) await updateFund(fund); else await addFund(fund);
             } else if (activeTab === 'CHURCH') {
                 const churchData: any = {
@@ -411,6 +414,7 @@ export default function Registries() {
                                         {activeTab === 'FUND' && (
                                             <>
                                                 <Input label="Descrição / Finalidade" value={entityDesc} onChange={e => setEntityDesc(e.target.value)} placeholder="Ex: Arrecadação para reforma do telhado" />
+                                                <Input label="Meta de Arrecadação (Opcional - R$)" type="number" step="0.01" value={entityTargetAmount} onChange={e => setEntityTargetAmount(e.target.value)} placeholder="Ex: 5000" />
                                                 <div>
                                                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Tipo de Fundo</label>
                                                     <div className="flex gap-4 p-2 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600">

@@ -38,6 +38,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [filterCostCenter, setFilterCostCenter] = useState('ALL');
   const [filterFund, setFilterFund] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'MISSING_ATTACHMENT' | 'NOT_RECONCILED'>('ALL');
   const [showFilters, setShowFilters] = useState(false);
 
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -58,6 +59,12 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
     .filter(t => filterCategory === 'ALL' || t.categoryId === filterCategory)
     .filter(t => filterCostCenter === 'ALL' || t.costCenterId === filterCostCenter)
     .filter(t => filterFund === 'ALL' || t.fundId === filterFund)
+    .filter(t => {
+      if (filterStatus === 'ALL') return true;
+      if (filterStatus === 'MISSING_ATTACHMENT') return t.type === TransactionType.EXPENSE && (!t.attachments || t.attachments.length === 0);
+      if (filterStatus === 'NOT_RECONCILED') return !t.reconciled;
+      return true;
+    })
     .filter(t =>
       t.description.toLowerCase().includes(search.toLowerCase()) ||
       (t.memberOrSupplierName && t.memberOrSupplierName.toLowerCase().includes(search.toLowerCase()))
@@ -120,10 +127,35 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
 
         <div className="flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 transition-all">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
-            <div className="flex gap-2 w-full lg:w-auto">
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="flex flex-wrap gap-2 flex-1">
+              <button
+                onClick={() => setFilterStatus('ALL')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${filterStatus === 'ALL' ? 'bg-gray-800 dark:bg-slate-600 text-white border-gray-800' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700 hover:border-gray-300'}`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setFilterStatus('MISSING_ATTACHMENT')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${filterStatus === 'MISSING_ATTACHMENT' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700 hover:border-amber-200'}`}
+              >
+                <AlertCircle size={14} /> Sem Comprovante
+              </button>
+              <button
+                onClick={() => setFilterStatus('NOT_RECONCILED')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${filterStatus === 'NOT_RECONCILED' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-700' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700 hover:border-rose-200'}`}
+              >
+                <X size={14} /> Não Conciliados
+              </button>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-2">
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-32 p-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-32 p-1.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-gray-50 dark:bg-slate-700 text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
             <div className="flex-1 w-full lg:w-auto"><SearchBox value={search} onChange={setSearch} placeholder="Buscar por descrição, membro..." /></div>
             <div className="flex gap-2 w-full lg:w-auto">
               <button onClick={() => setShowFilters(!showFilters)} className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 border rounded-lg font-medium transition-colors ${showFilters || activeFiltersCount > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'}`}><Filter size={18} />Filtros {activeFiltersCount > 0 && <span className="bg-blue-600 text-white text-[10px] px-1.5 rounded-full">{activeFiltersCount}</span>}</button>

@@ -621,6 +621,26 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
                   <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-gray-400 group-hover:text-purple-500 group-hover:bg-purple-50 dark:group-hover:bg-purple-900/30 transition-colors"><Target size={16} /></div>
                 </div>
                 {fund.description && <p className="text-[10px] text-gray-400 mt-2 truncate font-medium">{fund.description}</p>}
+
+                {fund.targetAmount && fund.targetAmount > 0 ? (
+                  <div className="mt-4 space-y-1.5">
+                    <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                      <span>Progresso da Meta</span>
+                      <span>{Math.max(0, Math.min(100, (fund.balance / fund.targetAmount) * 100)).toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden border border-gray-50 dark:border-slate-800">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-1000 shadow-[0_0_8px_rgba(139,92,246,0.3)]"
+                        style={{ width: `${Math.max(0, Math.min(100, (fund.balance / fund.targetAmount) * 100))}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 italic">Meta: {formatValue(fund.targetAmount)}</p>
+                  </div>
+                ) : (
+                  <div className="mt-4 pt-4 border-t border-gray-50 dark:border-slate-700/50">
+                    <p className="text-[9px] text-gray-400 italic">Sem meta definida</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -740,26 +760,57 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
         {/* Right Column: Alerts */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col h-full max-h-[900px]">
           <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-6 flex items-center gap-2"><AlertTriangle size={20} className="text-amber-500" />Central de Alertas</h3>
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
-            {budgetAlerts.map(b => {
-              const isOver = b.percent >= 100;
-              return (
-                <div key={b.id} className={`p-4 rounded-xl border relative transition-all ${isOver ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30' : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'}`}>
-                  <div className="flex justify-between items-start mb-2"><p className={`text-[10px] font-bold uppercase tracking-wider ${isOver ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>{isOver ? 'Estourado' : 'Em Risco'}</p><span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isOver ? 'bg-white dark:bg-red-900/50 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300' : 'bg-white dark:bg-amber-900/50 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'}`}>{b.percent.toFixed(0)}%</span></div>
-                  <div className="flex justify-between items-end mb-3"><p className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">{categories.find(c => c.id === b.categoryId)?.name}</p><p className="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatValue(b.spent)} <span className="opacity-50">/ {formatValue(b.amount)}</span></p></div>
-                  <div className={`w-full h-1.5 rounded-full overflow-hidden ${isOver ? 'bg-red-200 dark:bg-red-900/30' : 'bg-amber-200 dark:bg-amber-900/30'}`}><div className={`h-full rounded-full ${isOver ? 'bg-red-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(b.percent, 100)}%` }}></div></div>
-                </div>
-              );
-            })}
-            {scheduleAlerts.map(s => (
-              <div key={s.id} className="p-4 bg-white dark:bg-slate-700/20 border border-gray-200 dark:border-slate-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-700 transition-colors group">
-                <div className="flex justify-between items-start">
-                  <div className="min-w-0 flex-1 mr-2"><span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide inline-block mb-1 ${s.diffDays < 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : s.diffDays === 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>{s.diffDays === 0 ? 'Vence Hoje' : s.diffDays < 0 ? 'Atrasado' : `Vence em ${s.diffDays}d`}</span><p className="text-sm font-bold text-gray-900 dark:text-white truncate">{s.title}</p></div>
-                  <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap bg-gray-50 dark:bg-slate-700 px-2 py-1 rounded-lg border border-gray-100 dark:border-slate-600">{formatValue(s.amount)}</span>
-                </div>
-                <div className="mt-2 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-slate-700/50 pt-2"><span>Vencimento:</span><span className="font-bold text-gray-700 dark:text-gray-300">{s.dueDateObj.toLocaleDateString('pt-BR')}</span></div>
+          <div className="flex-1 overflow-y-auto space-y-6 pr-1 custom-scrollbar">
+            {/* Critical Alerts */}
+            {(scheduleAlerts.filter(s => s.diffDays <= 0).length > 0 || budgetAlerts.filter(b => b.percent >= 100).length > 0) && (
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                  Críticos
+                </h4>
+                {budgetAlerts.filter(b => b.percent >= 100).map(b => (
+                  <div key={b.id} className="p-4 rounded-xl border bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30">
+                    <div className="flex justify-between items-start mb-2"><p className="text-[10px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">Orçamento Estourado</p><span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-white dark:bg-red-900/50 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">{b.percent.toFixed(0)}%</span></div>
+                    <div className="flex justify-between items-end mb-3"><p className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">{categories.find(c => c.id === b.categoryId)?.name}</p></div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden bg-red-200 dark:bg-red-900/30"><div className="h-full rounded-full bg-red-500" style={{ width: '100%' }}></div></div>
+                  </div>
+                ))}
+                {scheduleAlerts.filter(s => s.diffDays <= 0).map(s => (
+                  <div key={s.id} className="p-4 bg-white dark:bg-slate-700/20 border-l-4 border-l-red-500 border-y border-r border-gray-200 dark:border-slate-700 rounded-xl">
+                    <div className="flex justify-between items-start">
+                      <div className="min-w-0 flex-1 mr-2"><span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide inline-block mb-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{s.diffDays === 0 ? 'Vence Hoje' : 'Atrasado'}</span><p className="text-sm font-bold text-gray-900 dark:text-white truncate">{s.title}</p></div>
+                      <span className="text-sm font-bold text-red-600 dark:text-red-400 whitespace-nowrap">{formatValue(s.amount)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Attention Alerts */}
+            {(scheduleAlerts.filter(s => s.diffDays > 0).length > 0 || budgetAlerts.filter(b => b.percent < 100).length > 0) && (
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  Em Atenção
+                </h4>
+                {budgetAlerts.filter(b => b.percent < 100).map(b => (
+                  <div key={b.id} className="p-4 rounded-xl border bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30">
+                    <div className="flex justify-between items-start mb-2"><p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Limite Próximo</p><span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-white dark:bg-amber-900/50 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300">{b.percent.toFixed(0)}%</span></div>
+                    <div className="flex justify-between items-end mb-3"><p className="text-sm font-bold text-gray-900 dark:text-white truncate pr-2">{categories.find(c => c.id === b.categoryId)?.name}</p></div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden bg-amber-200 dark:bg-amber-900/30"><div className="h-full rounded-full bg-amber-500" style={{ width: `${b.percent}%` }}></div></div>
+                  </div>
+                ))}
+                {scheduleAlerts.filter(s => s.diffDays > 0).map(s => (
+                  <div key={s.id} className="p-4 bg-white dark:bg-slate-700/20 border border-gray-200 dark:border-slate-700 rounded-xl">
+                    <div className="flex justify-between items-start">
+                      <div className="min-w-0 flex-1 mr-2"><span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide inline-block mb-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Daqui a {s.diffDays} dias</span><p className="text-sm font-bold text-gray-900 dark:text-white truncate">{s.title}</p></div>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">{formatValue(s.amount)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {budgetAlerts.length === 0 && scheduleAlerts.length === 0 && (<div className="h-64 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 dark:border-slate-700/50 rounded-xl"><div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-full mb-3"><CheckCircle className="text-emerald-500 opacity-80" size={32} /></div><p className="text-sm font-bold text-gray-600 dark:text-gray-300">Tudo sob controle!</p><p className="text-xs opacity-70 mt-1">Sem alertas pendentes.</p></div>)}
           </div>
         </div>

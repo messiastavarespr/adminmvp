@@ -54,6 +54,7 @@ export interface Fund {
   churchId: string;
   isSystemDefault?: boolean;
   order?: number; // For manual ordering
+  targetAmount?: number; // Optional goal for progress bars
 }
 
 // New Entity: Accounting (Plano de Contas)
