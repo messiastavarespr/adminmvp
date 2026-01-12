@@ -63,11 +63,11 @@ export const warningService = {
     },
 
     // Create a new warning (Admin only)
-    async createWarning(title: string, message: string, userId: string): Promise<SystemWarning> {
+    async createWarning(title: string, message: string, userId: string, targetUserId?: string): Promise<SystemWarning> {
         const { data, error } = await supabase
             .from('system_warnings')
             .insert([
-                { title, message, created_by: userId, active: true }
+                { title, message, created_by: userId, active: true, target_user_id: targetUserId || null }
             ])
             .select()
             .single();

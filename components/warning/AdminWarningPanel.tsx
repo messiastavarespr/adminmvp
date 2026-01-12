@@ -5,9 +5,10 @@ import { SystemWarning } from '../../types';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 
 const AdminWarningPanel: React.FC = () => {
-    const { currentUser } = useFinance();
+    const { currentUser, data: { users: allUsers } } = useFinance();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
+    const [targetUserId, setTargetUserId] = useState('');
     const [warnings, setWarnings] = useState<SystemWarning[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -30,9 +31,10 @@ const AdminWarningPanel: React.FC = () => {
 
         setLoading(true);
         try {
-            await warningService.createWarning(title, message, currentUser.id);
+            await warningService.createWarning(title, message, currentUser.id, targetUserId || undefined);
             setTitle('');
             setMessage('');
+            setTargetUserId('');
             fetchWarnings();
             alert('Aviso criado com sucesso!');
         } catch (error) {
@@ -92,6 +94,23 @@ const AdminWarningPanel: React.FC = () => {
                             required
                         />
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Destinatário (Opcional)
+                        </label>
+                        <select
+                            value={targetUserId}
+                            onChange={(e) => setTargetUserId(e.target.value)}
+                            className="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-slate-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border transition-all"
+                        >
+                            <option value="">Todos os Usuários</option>
+                            {allUsers.map(u => (
+                                <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                            ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500 italic">Deixe em branco para que todos os usuários vejam este aviso.</p>
+                    </div>
                     <div className="flex justify-end">
                         <button
                             type="submit"
@@ -127,8 +146,18 @@ const AdminWarningPanel: React.FC = () => {
                                         <span className="text-[10px] uppercase font-bold tracking-wider text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 px-2 py-0.5 rounded border border-green-100 dark:border-green-900/30">Ativo</span>
                                     </h4>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">{w.message}</p>
-                                    <span className="text-xs text-gray-400 mt-2 block flex items-center gap-1">
+                                    <span className="text-xs text-gray-400 mt-2 block flex items-center gap-1 flex-wrap">
                                         Created: {new Date(w.created_at).toLocaleDateString()} • Por: {w.users?.name || 'Sistema'}
+                                        {w.target_user_id && (
+                                            <span className="ml-2 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full border border-blue-100 dark:border-blue-800 text-[10px] font-bold">
+                                                DIRECIONADO: {allUsers.find(u => u.id === w.target_user_id)?.name || 'Usuário Destino'}
+                                            </span>
+                                        )}
+                                        {!w.target_user_id && (
+                                            <span className="ml-2 px-2 py-0.5 bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-gray-400 rounded-full border border-gray-200 dark:border-gray-600 text-[10px] font-bold">
+                                                GERAL
+                                            </span>
+                                        )}
                                     </span>
                                 </div>
                                 <button

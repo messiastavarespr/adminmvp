@@ -301,6 +301,7 @@ export interface SystemWarning {
   active: boolean;
   created_at: string;
   created_by?: string;
+  target_user_id?: string;
   users?: { name: string };
 }
 
