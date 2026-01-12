@@ -167,12 +167,24 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                     <th className="px-6 py-3 text-center whitespace-nowrap w-[120px]">Ações</th>
                   </tr>
                 )}
+                components={{
+                  TableRow: (props) => {
+                    const index = props['data-index'];
+                    return (
+                      <tr
+                        {...props}
+                        className={`${props.className} transition-colors border-b border-gray-50/50 dark:border-slate-700/50 hover:bg-blue-50/30 dark:hover:bg-slate-700/40 ${index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50/30 dark:bg-slate-800/40'
+                          }`}
+                      />
+                    );
+                  }
+                }}
                 itemContent={(index, t) => (
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">{t.date.split('T')[0].split('-').reverse().join('/')}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300 text-xs font-medium">{t.date.split('T')[0].split('-').reverse().join('/')}</td>
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                       <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[300px]" title={t.description}>{t.description}</span>
+                        <span className="truncate max-w-[300px] text-sm" title={t.description}>{t.description}</span>
                         {t.reconciled && (
                           <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap" title="Conciliado">
                             <CheckCircle size={10} /> OK
@@ -186,23 +198,28 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                         {getCategoryName(t.categoryId)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{getFundName(t.fundId)}</td>
-                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{t.createdBy || '-'}</td>
-                    <td className={`px-6 py-4 text-right font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</td>
+                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-[11px] font-medium">{getFundName(t.fundId)}</td>
+                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-[11px] italic">{t.createdBy || '-'}</td>
+                    <td className={`px-6 py-4 text-right font-bold text-sm ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="text-gray-400 hover:text-emerald-500" title="Recibo Digital"><Share2 size={16} /></button>}
+                        {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="p-1.5 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Recibo Digital"><Share2 size={16} /></button>}
                         {t.attachments && t.attachments.length > 0 && (
                           <button
                             onClick={() => window.open(t.attachments[0], '_blank')}
-                            className="text-gray-400 hover:text-blue-500"
+                            className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                             title={`Ver Anexo (${t.attachments.length})`}
                           >
                             <Paperclip size={16} />
                           </button>
                         )}
-                        <button onClick={() => setViewingTransaction(t)} className="text-gray-400 hover:text-blue-500" title="Visualizar"><Eye size={16} /></button>
-                        {canEdit && <><button onClick={() => onEdit(t)} className="text-gray-400 hover:text-amber-500" title="Editar"><Edit2 size={16} /></button><button onClick={() => setItemToDelete(t.id)} className="text-gray-400 hover:text-red-500" title="Excluir"><Trash2 size={16} /></button></>}
+                        <button onClick={() => setViewingTransaction(t)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Visualizar"><Eye size={16} /></button>
+                        {canEdit && (
+                          <>
+                            <button onClick={() => onEdit(t)} className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors" title="Editar"><Edit2 size={16} /></button>
+                            <button onClick={() => setItemToDelete(t.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Excluir"><Trash2 size={16} /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </>
