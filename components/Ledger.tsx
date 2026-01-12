@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Transaction, TransactionType, Category, Account, UserRole, CostCenter, Member, Church, Fund } from '../types';
-import { Filter, Trash2, FileText, Download, TrendingUp, TrendingDown, Wallet, ArrowLeftRight, Search, X, Edit2, Plus, Minus, Eye, CalendarClock, ChevronLeft, ChevronRight, FileSpreadsheet, Share2, AlertCircle, Target, User, Paperclip } from './ui/Icons';
+import { Filter, Trash2, FileText, Download, TrendingUp, TrendingDown, Wallet, ArrowLeftRight, Search, X, Edit2, Plus, Minus, Eye, CalendarClock, ChevronLeft, ChevronRight, FileSpreadsheet, Share2, AlertCircle, Target, User, Paperclip, CheckCircle } from './ui/Icons';
 import ConfirmationModal from './ConfirmationModal';
 import TransactionDetailsModal from './TransactionDetailsModal';
 import ReceiptModal from './ReceiptModal';
@@ -170,9 +170,22 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                 itemContent={(index, t) => (
                   <>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-300">{t.date.split('T')[0].split('-').reverse().join('/')}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{t.description}{t.reconciled && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded border border-green-200" title="Conciliado">OK</span>}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate max-w-[300px]" title={t.description}>{t.description}</span>
+                        {t.reconciled && (
+                          <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap" title="Conciliado">
+                            <CheckCircle size={10} /> OK
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[150px]" title={t.memberOrSupplierName}>{t.memberOrSupplierName || '-'}</td>
-                    <td className="px-6 py-4"><span className="px-2 py-1 bg-gray-100 dark:bg-slate-600 rounded-full text-xs text-gray-600 dark:text-gray-300 font-medium">{getCategoryName(t.categoryId)}</span></td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-800/30">
+                        {getCategoryName(t.categoryId)}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{getFundName(t.fundId)}</td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{t.createdBy || '-'}</td>
                     <td className={`px-6 py-4 text-right font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</td>
@@ -207,7 +220,14 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                       <div className="flex items-start gap-3">
                         <div className={`p-2 rounded-full ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} dark:bg-opacity-20`}>{t.type === TransactionType.INCOME ? <TrendingUp size={20} /> : <TrendingDown size={20} />}</div>
                         <div>
-                          <h4 className="font-bold text-gray-900 dark:text-white leading-tight mb-1 flex items-center">{t.description}{t.reconciled && <span className="ml-1 text-[9px] bg-green-100 text-green-700 px-1 rounded border border-green-200">OK</span>}</h4>
+                          <h4 className="font-bold text-gray-900 dark:text-white leading-tight mb-1 flex items-center gap-2">
+                            {t.description}
+                            {t.reconciled && (
+                              <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap">
+                                <CheckCircle size={9} /> OK
+                              </span>
+                            )}
+                          </h4>
                           {t.memberOrSupplierName && (
                             <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1 flex items-center gap-1"><User size={10} /> {t.memberOrSupplierName}</p>
                           )}
@@ -216,7 +236,11 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                       </div>
                       <p className={`font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</p>
                     </div>
-                    <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg"><span>{getCategoryName(t.categoryId)}</span><span>{getFundName(t.fundId)}</span></div>
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg gap-2 overflow-hidden">
+                      <span className="text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{getCategoryName(t.categoryId)}</span>
+                      <span className="text-gray-400 dark:text-gray-500">•</span>
+                      <span className="text-gray-500 dark:text-gray-400 truncate">{getFundName(t.fundId)}</span>
+                    </div>
                     <div className="flex justify-end gap-2 pt-2">
                       {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-bold border border-emerald-100 dark:border-emerald-800"><Share2 size={14} /> Recibo</button>}
                       {t.attachments && t.attachments.length > 0 && (
