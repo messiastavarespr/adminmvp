@@ -193,7 +193,10 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                           <AlertCircle size={14} className="text-amber-500 shrink-0 anim-pulse" title="Sem comprovante anexado" />
                         )}
                         {t.reconciled && (
-                          <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap" title="Conciliado">
+                          <span
+                            className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap"
+                            title="Lançamento Conciliado: Este valor já foi conferido e validado com o extrato bancário/caixa."
+                          >
                             <CheckCircle size={10} /> OK
                           </span>
                         )}
@@ -255,7 +258,10 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                                 <AlertCircle size={14} className="text-amber-500 shrink-0" />
                               )}
                               {t.reconciled && (
-                                <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap">
+                                <span
+                                  className="inline-flex items-center gap-1 text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap"
+                                  title="Lançamento Conciliado: Este valor já foi conferido e validado com o extrato bancário/caixa."
+                                >
                                   <CheckCircle size={9} /> OK
                                 </span>
                               )}
