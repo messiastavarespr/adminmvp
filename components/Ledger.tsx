@@ -170,11 +170,15 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                 components={{
                   TableRow: (props) => {
                     const index = props['data-index'];
+                    const t = filteredTransactions[index];
+                    const isExpenseWithoutAttachment = t?.type === TransactionType.EXPENSE && (!t.attachments || t.attachments.length === 0);
+
                     return (
                       <tr
                         {...props}
+                        title={isExpenseWithoutAttachment ? "Atenção: Este lançamento de saída não possui comprovante anexado." : undefined}
                         className={`${props.className} transition-colors border-b border-gray-50/50 dark:border-slate-700/50 hover:bg-blue-50/30 dark:hover:bg-slate-700/40 ${index % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50/30 dark:bg-slate-800/40'
-                          }`}
+                          } ${isExpenseWithoutAttachment ? 'border-l-4 border-l-amber-500' : ''}`}
                       />
                     );
                   }
@@ -185,6 +189,9 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                       <div className="flex items-center gap-2">
                         <span className="truncate max-w-[300px] text-sm" title={t.description}>{t.description}</span>
+                        {t.type === TransactionType.EXPENSE && (!t.attachments || t.attachments.length === 0) && (
+                          <AlertCircle size={14} className="text-amber-500 shrink-0 anim-pulse" title="Sem comprovante anexado" />
+                        )}
                         {t.reconciled && (
                           <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap" title="Conciliado">
                             <CheckCircle size={10} /> OK
@@ -231,48 +238,57 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
             <div className="md:hidden h-full">
               <Virtuoso
                 data={filteredTransactions}
-                itemContent={(index, t) => (
-                  <div className="p-4 space-y-3 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-full ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} dark:bg-opacity-20`}>{t.type === TransactionType.INCOME ? <TrendingUp size={20} /> : <TrendingDown size={20} />}</div>
-                        <div>
-                          <h4 className="font-bold text-gray-900 dark:text-white leading-tight mb-1 flex items-center gap-2">
-                            {t.description}
-                            {t.reconciled && (
-                              <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap">
-                                <CheckCircle size={9} /> OK
-                              </span>
+                itemContent={(index, t) => {
+                  const isExpenseWithoutAttachment = t.type === TransactionType.EXPENSE && (!t.attachments || t.attachments.length === 0);
+                  return (
+                    <div
+                      title={isExpenseWithoutAttachment ? "Atenção: Este lançamento de saída não possui comprovante anexado." : undefined}
+                      className={`p-4 space-y-3 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 ${isExpenseWithoutAttachment ? 'border-l-4 border-l-amber-500' : ''}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-full ${t.type === TransactionType.INCOME ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} dark:bg-opacity-20`}>{t.type === TransactionType.INCOME ? <TrendingUp size={20} /> : <TrendingDown size={20} />}</div>
+                          <div>
+                            <h4 className="font-bold text-gray-900 dark:text-white leading-tight mb-1 flex items-center gap-2">
+                              {t.description}
+                              {isExpenseWithoutAttachment && (
+                                <AlertCircle size={14} className="text-amber-500 shrink-0" />
+                              )}
+                              {t.reconciled && (
+                                <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50 font-bold whitespace-nowrap">
+                                  <CheckCircle size={9} /> OK
+                                </span>
+                              )}
+                            </h4>
+                            {t.memberOrSupplierName && (
+                              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1 flex items-center gap-1"><User size={10} /> {t.memberOrSupplierName}</p>
                             )}
-                          </h4>
-                          {t.memberOrSupplierName && (
-                            <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1 flex items-center gap-1"><User size={10} /> {t.memberOrSupplierName}</p>
-                          )}
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.date.split('T')[0].split('-').reverse().join('/')}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t.date.split('T')[0].split('-').reverse().join('/')}</p>
+                          </div>
                         </div>
+                        <p className={`font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</p>
                       </div>
-                      <p className={`font-bold ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>{formatter.format(t.amount)}</p>
+                      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg gap-2 overflow-hidden">
+                        <span className="text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{getCategoryName(t.categoryId)}</span>
+                        <span className="text-gray-400 dark:text-gray-500">•</span>
+                        <span className="text-gray-500 dark:text-gray-400 truncate">{getFundName(t.fundId)}</span>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-bold border border-emerald-100 dark:border-emerald-800"><Share2 size={14} /> Recibo</button>}
+                        {t.attachments && t.attachments.length > 0 && (
+                          <button onClick={() => window.open(t.attachments[0], '_blank')} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-blue-500"><Paperclip size={16} /></button>
+                        )}
+                        <button onClick={() => setViewingTransaction(t)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-blue-500"><Eye size={16} /></button>
+                        {canEdit && (
+                          <>
+                            <button onClick={() => onEdit(t)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-amber-500"><Edit2 size={16} /></button>
+                            <button onClick={() => setItemToDelete(t.id)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-red-500"><Trash2 size={16} /></button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg gap-2 overflow-hidden">
-                      <span className="text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{getCategoryName(t.categoryId)}</span>
-                      <span className="text-gray-400 dark:text-gray-500">•</span>
-                      <span className="text-gray-500 dark:text-gray-400 truncate">{getFundName(t.fundId)}</span>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                      {t.type === TransactionType.INCOME && <button onClick={() => setReceiptTransaction(t)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-bold border border-emerald-100 dark:border-emerald-800"><Share2 size={14} /> Recibo</button>}
-                      {t.attachments && t.attachments.length > 0 && (
-                        <button onClick={() => window.open(t.attachments[0], '_blank')} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-blue-500"><Paperclip size={16} /></button>
-                      )}
-                      <button onClick={() => setViewingTransaction(t)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-blue-500"><Eye size={16} /></button>
-                      {canEdit && (
-                        <>
-                          <button onClick={() => onEdit(t)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-amber-500"><Edit2 size={16} /></button>
-                          <button onClick={() => setItemToDelete(t.id)} className="p-2 text-gray-400 bg-gray-100 dark:bg-slate-700 rounded-lg hover:text-red-500"><Trash2 size={16} /></button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  );
+                }}
               />
             </div>
           </>
