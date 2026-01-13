@@ -28,7 +28,7 @@ const Reconciliation = React.lazy(() => import('./components/Reconciliation'));
 const AccountsPayable = React.lazy(() => import('./components/AccountsPayable'));
 const Assets = React.lazy(() => import('./components/Assets'));
 const Registries = React.lazy(() => import('./components/Registries'));
-// Import Profile Page (Not Lazy for now or Lazy is fine)
+const PublicMemberRegistration = React.lazy(() => import('./components/secretary/PublicMemberRegistration'));
 import { ProfilePage } from './components/ProfilePage';
 import WarningModal from './components/warning/WarningModal';
 
@@ -278,6 +278,19 @@ function AppContent() {
     );
   }
 
+  const { pathname } = window.location;
+  const isPublicRoute = pathname === '/registro';
+
+  if (isPublicRoute) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/registro" element={<PublicMemberRegistration />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   if (!currentUser) return <Login users={data.users} onLogin={handleLogin} logoUrl={systemLogo} />;
 
   if (currentUser.role === UserRole.MEMBER) {
@@ -388,7 +401,7 @@ function AppContent() {
               } />
               <Route path="/reports" element={<Reports data={filteredAppData} />} />
               <Route path="/members" element={
-                <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} />
+                <Members members={filteredAppData.members} onUpdate={refreshData} userRole={currentUser.role} currentChurchId={targetChurchId} systemMode={systemMode} />
               } />
               <Route path="/tools" element={<Tools />} />
               <Route path="/assets" element={<Assets />} />

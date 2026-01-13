@@ -14,6 +14,7 @@ interface MemberFormProps {
     currentChurchId: string;
     initialValues?: Partial<Member>; // New prop for manual initialization
     onSaved?: (member: Member) => void; // New prop to capture created member
+    systemMode: 'FINANCE' | 'SECRETARY';
 }
 
 type TabType = 'BASIC' | 'PERSONAL' | 'ECCLESIASTICAL' | 'FAMILY';
@@ -174,7 +175,7 @@ const ChildListManager: React.FC<{ value?: string, onChange: (val: string) => vo
     );
 };
 
-const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onClose, onSuccess, currentChurchId, initialValues, onSaved }) => {
+const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onClose, onSuccess, currentChurchId, initialValues, onSaved, systemMode }) => {
     const { addMember, updateMember, data, addMemberRole, removeMemberRole, updateMemberRole, addMemberCategory, removeMemberCategory, updateMemberCategory } = useFinance();
     const [activeTab, setActiveTab] = useState<TabType>('BASIC');
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -472,18 +473,21 @@ const MemberForm: React.FC<MemberFormProps> = ({ member, type: initialType, onCl
                                 )}
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Status</label>
-                                <select
-                                    value={formData.status || 'ACTIVE'}
-                                    onChange={e => handleChange('status', e.target.value)}
-                                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
-                                >
-                                    <option value="ACTIVE">Ativo</option>
-                                    <option value="INACTIVE">Inativo</option>
-                                    <option value="OBSERVATION">Em Observação</option>
-                                </select>
-                            </div>
+                            {systemMode === 'SECRETARY' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Status</label>
+                                    <select
+                                        value={formData.status || 'ACTIVE'}
+                                        onChange={e => handleChange('status', e.target.value)}
+                                        className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white outline-none"
+                                    >
+                                        <option value="ACTIVE">Ativo</option>
+                                        <option value="INACTIVE">Inativo</option>
+                                        <option value="OBSERVATION">Em Observação</option>
+                                        <option value="PENDING">Pendente</option>
+                                    </select>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Telefone / WhatsApp</label>

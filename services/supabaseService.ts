@@ -30,7 +30,7 @@ const mapToSnake = (obj: any): any => {
     return obj;
 };
 
-const defaultChurchId = 'ch_hq'; // Fallback
+const defaultChurchId = 'a1af7de1-4415-46e1-b1f2-2bd7ced927f3'; // Sede UUID
 
 export const supabaseService = {
     // --- Core Fetch ---
@@ -148,6 +148,17 @@ export const supabaseService = {
 
         if (error) throw error;
         return mapToCamel(data || []) as AuditLog[];
+    },
+
+    getChurch: async (id: string): Promise<Church | null> => {
+        const { data, error } = await supabase
+            .from('churches')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) return null;
+        return mapToCamel<Church>(data);
     },
 
     // --- Transactions ---

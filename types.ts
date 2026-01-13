@@ -117,7 +117,7 @@ export interface Member {
   rg?: string;
   document?: string;
   notes?: string;
-  status?: 'ACTIVE' | 'INACTIVE' | 'OBSERVATION';
+  status?: 'ACTIVE' | 'INACTIVE' | 'OBSERVATION' | 'PENDING';
   tags?: string[];
 
   // Secretariat Fields - Personal

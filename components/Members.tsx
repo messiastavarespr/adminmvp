@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, UserRole } from '../types';
-import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter, ArrowLeftRight } from './ui/Icons';
+import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter, ArrowLeftRight, Share2, Copy, AlertTriangle } from './ui/Icons';
 import MergeMembersModal from './MergeMembersModal';
 import { useFinance } from '../contexts/FinanceContext';
 import ConfirmationModal from './ConfirmationModal';
@@ -17,9 +17,10 @@ interface MembersProps {
   onUpdate: () => void;
   userRole: UserRole;
   currentChurchId: string;
+  systemMode: 'FINANCE' | 'SECRETARY';
 }
 
-const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentChurchId }) => {
+const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentChurchId, systemMode }) => {
   const { deleteMember, refreshData } = useFinance();
   const [activeTab, setActiveTab] = useState<'MEMBERS' | 'SUPPLIERS'>('MEMBERS');
   const [viewMode, setViewMode] = useState<'GRID' | 'TABLE'>('GRID');
@@ -28,6 +29,26 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [showBirthdays, setShowBirthdays] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const handleCopyLink = () => {
+    const registrationLink = `${window.location.origin}/registro?c=${currentChurchId}`;
+    navigator.clipboard.writeText(registrationLink);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  const isDuplicate = (m: Member) => {
+    if (m.status !== 'PENDING') return false;
+    return members.some(other =>
+      other.id !== m.id &&
+      (other.status === 'ACTIVE' || other.status === 'INACTIVE' || other.status === 'OBSERVATION') &&
+      (
+        (m.document && other.document === m.document) ||
+        (m.name.trim().toLowerCase() === other.name.trim().toLowerCase())
+      )
+    );
+  };
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [mergingMember, setMergingMember] = useState<Member | null>(null);
@@ -158,6 +179,18 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                 >
                   <FileSpreadsheet size={18} /> <span className="hidden lg:inline">Importar</span>
                 </button>
+
+                <button
+                  onClick={handleCopyLink}
+                  className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm shrink-0 border ${copySuccess
+                    ? 'bg-green-50 border-green-200 text-green-600'
+                    : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100'
+                    }`}
+                  title="Copiar link de cadastro público"
+                >
+                  {copySuccess ? <Copy size={18} /> : <Share2 size={18} />}
+                  <span className="hidden lg:inline">{copySuccess ? 'Link Copiado!' : 'Link de Cadastro'}</span>
+                </button>
                 <button
                   onClick={() => handleOpenForm()}
                   className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm shrink-0"
@@ -184,6 +217,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
               <option value="ALL">Todos os Status</option>
               <option value="ACTIVE">Ativos</option>
               <option value="INACTIVE">Inativos</option>
+              <option value="PENDING">Pendentes (Novos)</option>
               <option value="OBSERVATION">Em Observação</option>
             </select>
 
@@ -210,6 +244,7 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
           currentChurchId={currentChurchId}
           onClose={() => setShowForm(false)}
           onSuccess={() => { refreshData(); onUpdate(); }}
+          systemMode={systemMode}
         />
       )}
 
@@ -232,7 +267,8 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                   {m.type !== 'SUPPLIER' && (
                     <div className={`absolute top-0 left-0 w-1 h-full ${m.status === 'INACTIVE' ? 'bg-gray-300' :
                       m.status === 'OBSERVATION' ? 'bg-amber-400' :
-                        'bg-blue-500'
+                        m.status === 'PENDING' ? 'bg-purple-500' :
+                          'bg-blue-500'
                       }`}></div>
                   )}
 
@@ -252,6 +288,18 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                             {m.type === 'MEMBER' ? 'Membro' : m.type === 'VISITOR' ? 'Visitante' : 'Fornecedor'}
                           </span>
                           {m.status === 'INACTIVE' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Inativo</span>}
+                          {m.status === 'PENDING' && (
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 animate-pulse">
+                                Pendente de Aprovação
+                              </span>
+                              {isDuplicate(m) && (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                                  <AlertTriangle size={12} /> POSSÍVEL DUPLICADO
+                                </span>
+                              )}
+                            </div>
+                          )}
                           {m.status === 'OBSERVATION' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-100">Observação</span>}
                         </div>
                       </div>
@@ -350,10 +398,22 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
                           {[m.city, m.address ? m.address.split(',')[0] : ''].filter(Boolean).join(' - ')}
                         </td>
                         <td className="p-3">
-                          {m.status === 'ACTIVE' && <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">Ativo</span>}
-                          {m.status === 'INACTIVE' && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Inativo</span>}
-                          {m.status === 'OBSERVATION' && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">Observação</span>}
-                          {!m.status && m.type === 'SUPPLIER' && <span className="text-xs text-gray-400">-</span>}
+                          <div className="flex flex-col gap-1">
+                            {m.status === 'ACTIVE' && <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">Ativo</span>}
+                            {m.status === 'INACTIVE' && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full w-fit">Inativo</span>}
+                            {m.status === 'PENDING' && (
+                              <>
+                                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full border border-purple-100 w-fit">Pendente</span>
+                                {isDuplicate(m) && (
+                                  <span className="flex items-center gap-1 text-[9px] font-bold text-red-600">
+                                    <AlertTriangle size={10} /> DUPLICADO
+                                  </span>
+                                )}
+                              </>
+                            )}
+                            {m.status === 'OBSERVATION' && <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 w-fit">Observação</span>}
+                            {!m.status && m.type === 'SUPPLIER' && <span className="text-xs text-gray-400">-</span>}
+                          </div>
                         </td>
                         <td className="p-3 text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
