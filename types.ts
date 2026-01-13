@@ -304,6 +304,7 @@ export interface SystemWarning {
   created_by?: string;
   target_user_id?: string;
   users?: { name: string };
+  warning_reads?: { user_id: string; users: { name: string } }[];
 }
 
 export interface WarningRead {

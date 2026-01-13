@@ -6,7 +6,7 @@ export const warningService = {
     async fetchActiveWarnings(): Promise<SystemWarning[]> {
         const { data, error } = await supabase
             .from('system_warnings')
-            .select('*, users(name)')
+            .select('*, users(name), warning_reads(user_id, users(name))')
             .eq('active', true)
             .order('created_at', { ascending: false });
 

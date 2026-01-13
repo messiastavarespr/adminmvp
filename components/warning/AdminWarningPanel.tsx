@@ -159,6 +159,16 @@ const AdminWarningPanel: React.FC = () => {
                                             </span>
                                         )}
                                     </span>
+                                    {w.warning_reads && w.warning_reads.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Visualizado por:</span>
+                                            {w.warning_reads.map((r, idx) => (
+                                                <span key={idx} className="text-[10px] px-1.5 py-0.5 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-400 rounded border border-green-100 dark:border-green-900/20">
+                                                    {r.users?.name || 'Usuário'}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <button
                                     onClick={() => handleDeactivate(w.id)}
