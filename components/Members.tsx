@@ -68,9 +68,11 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
       (m.document && m.document.includes(search)) ||
       (m.tags && m.tags.some(t => t.toLowerCase().includes(search.toLowerCase())));
 
-    if (activeTab === 'SUPPLIERS') {
+    if (activeTab === 'SUPPLIERS' && systemMode !== 'SECRETARY') {
       return m.type === 'SUPPLIER' && matchesSearch;
     }
+
+    if (systemMode === 'SECRETARY' && m.type === 'SUPPLIER') return false;
 
     // Member Filters
     const isMemberOrVisitor = m.type === 'MEMBER' || m.type === 'VISITOR';
@@ -131,20 +133,22 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
               : 'Cadastre empresas e prestadores de serviço para o financeiro.'}
           </p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
-          <button
-            onClick={() => { setActiveTab('MEMBERS'); setShowForm(false); }}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'MEMBERS' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
-          >
-            Membros
-          </button>
-          <button
-            onClick={() => { setActiveTab('SUPPLIERS'); setShowForm(false); }}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'SUPPLIERS' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
-          >
-            Fornecedores
-          </button>
-        </div>
+        {systemMode !== 'SECRETARY' && (
+          <div className="flex gap-2 w-full md:w-auto bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+            <button
+              onClick={() => { setActiveTab('MEMBERS'); setShowForm(false); }}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'MEMBERS' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+            >
+              Membros
+            </button>
+            <button
+              onClick={() => { setActiveTab('SUPPLIERS'); setShowForm(false); }}
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'SUPPLIERS' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+            >
+              Fornecedores
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
