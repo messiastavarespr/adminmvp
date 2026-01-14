@@ -436,7 +436,7 @@ export const supabaseService = {
             is_paid: true,
             scheduled_id: scheduledItem.id,
             church_id: scheduledItem.churchId,
-            attachments: [], // Todo
+            attachments: scheduledItem.documentUrl ? [scheduledItem.documentUrl] : [],
             created_by: user?.name
         };
 
