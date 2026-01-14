@@ -15,7 +15,11 @@ export default function ChartOfAccounts() {
     // Filtering for current context
     const targetChurchId = activeChurchId === 'ALL' ? (currentUser?.churchId || '') : activeChurchId;
     const accounts = data.accountingAccounts.filter(a => activeChurchId === 'ALL' ? true : a.churchId === activeChurchId);
-    const categories = data.categories.filter(c => activeChurchId === 'ALL' ? true : c.churchId === activeChurchId);
+
+    const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
+    const categories = data.categories.filter(c =>
+        activeChurchId === 'ALL' ? true : (c.churchId === activeChurchId || c.churchId === hqId)
+    );
 
     // Split Logic
     const revenues = accounts.filter(a => a.type === 'REVENUE').sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -355,13 +359,13 @@ const Column = ({
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Buscar..."
-                            className="w-full pl-8 pr-3 py-1.5 text-sm bg-white/50 dark:bg-black/20 border-none rounded-lg outline-none focus:ring-1 focus:ring-current placeholder:text-gray-500"
+                            className="w-full pl-8 pr-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-lg outline-none focus:ring-1 focus:ring-current placeholder:text-gray-500 dark:text-white"
                         />
                     </div>
                     <select
                         value={catFilter}
                         onChange={e => setCatFilter(e.target.value)}
-                        className="w-1/3 py-1.5 px-2 text-sm bg-white/50 dark:bg-black/20 border-none rounded-lg outline-none focus:ring-1 focus:ring-current cursor-pointer text-gray-700 dark:text-gray-300"
+                        className="w-1/3 py-1.5 px-2 text-sm bg-white dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-lg outline-none focus:ring-1 focus:ring-current cursor-pointer text-gray-700 dark:text-gray-300"
                     >
                         <option value="ALL">Categoria</option>
                         {categories.filter((c: any) => (type === 'REVENUE' ? c.type === 'INCOME' : c.type === 'EXPENSE')).map((c: any) => (

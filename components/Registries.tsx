@@ -25,7 +25,8 @@ export default function Registries() {
         addFund, updateFund, deleteFund,
         addChurch, updateChurch, deleteChurch,
         addAccountingAccount, updateAccountingAccount, deleteAccountingAccount,
-        addAssetCategory, updateAssetCategory, deleteAssetCategory
+        addAssetCategory, updateAssetCategory, deleteAssetCategory,
+        activeChurchId
     } = useFinance();
 
     const [activeTab, setActiveTab] = useState<RegistryTab>('CHART_OF_ACCOUNTS');
@@ -40,6 +41,7 @@ export default function Registries() {
     const [newCatAccCode, setNewCatAccCode] = useState('');
     const [newAccAccCode, setNewAccAccCode] = useState('');
     const [entityTargetAmount, setEntityTargetAmount] = useState('');
+    const [entityShowOnDash, setEntityShowOnDash] = useState(true);
 
     // Church Specific States
     const [churchType, setChurchType] = useState<'HEADQUARTERS' | 'BRANCH'>('BRANCH');
@@ -72,7 +74,7 @@ export default function Registries() {
         return (
             <div className="h-full flex flex-col bg-gray-50 dark:bg-slate-900 overflow-hidden p-6">
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-6">
-                    <Database className="text-blue-600" /> Cadastros Auxiliares
+                    <Database className="text-blue-600" /> Cadastro
                 </h1>
                 <SettingsRegistries />
             </div>
@@ -80,19 +82,67 @@ export default function Registries() {
     }
 
     // --- DATA HELPERS ---
-    const getEntities = () => {
+    const entities = (() => {
+        const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
         switch (activeTab) {
-            case 'CATEGORY': return data.categories.filter(c => c.churchId === currentChurchId);
-            case 'ACCOUNT': return data.accounts.filter(a => a.churchId === currentChurchId).sort((a: any, b: any) => (a.order ?? 999) - (b.order ?? 999));
+            case 'CATEGORY': {
+                const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
+                const cats = data.categories.filter(c => c.churchId === currentChurchId || c.churchId === hqId);
+                const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+                const activeChurch = data.churches.find(c => c.id === targetChurchId);
+                const orderList = activeChurch?.settings?.categoryOrder || [];
+
+                return cats.sort((a, b) => {
+                    if (orderList.length > 0) {
+                        const idxA = orderList.indexOf(a.id);
+                        const idxB = orderList.indexOf(b.id);
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                    }
+                    return (a.order ?? 999) - (b.order ?? 999);
+                });
+            }
+            case 'ACCOUNT': {
+                const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
+                const accs = data.accounts.filter(a => a.churchId === currentChurchId || a.churchId === hqId);
+                const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+                const activeChurch = data.churches.find(c => c.id === targetChurchId);
+                const orderList = activeChurch?.settings?.accountOrder || [];
+
+                return accs.sort((a, b) => {
+                    if (orderList.length > 0) {
+                        const idxA = orderList.indexOf(a.id);
+                        const idxB = orderList.indexOf(b.id);
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                    }
+                    return (a.order ?? 999) - (b.order ?? 999);
+                });
+            }
             case 'COST_CENTER': return data.costCenters.filter(c => c.churchId === currentChurchId);
-            case 'FUND': return data.funds.filter(f => f.churchId === currentChurchId).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+            case 'FUND': {
+                const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+                const activeChurch = data.churches.find(c => c.id === targetChurchId);
+                const orderList = activeChurch?.settings?.fundOrder || [];
+
+                return data.funds.filter(f => f.churchId === currentChurchId).sort((a, b) => {
+                    if (orderList.length > 0) {
+                        const idxA = orderList.indexOf(a.id);
+                        const idxB = orderList.indexOf(b.id);
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                    }
+                    return (a.order ?? 999) - (b.order ?? 999);
+                });
+            }
             case 'CHURCH': return data.churches;
             case 'ASSET_CATEGORY': return data.assetCategories?.filter(c => c.churchId === currentChurchId) || [];
             default: return [];
         }
-    };
-
-    const entities = getEntities();
+    })();
     // Accounting Accounts for Selectors
     const revenueAccounts = data.accountingAccounts.filter(a => a.type === 'REVENUE');
     const expenseAccounts = data.accountingAccounts.filter(a => a.type === 'EXPENSE');
@@ -118,6 +168,7 @@ export default function Registries() {
         setFundType('RESTRICTED');
         setEntityTargetAmount('');
         setEntityIcon('');
+        setEntityShowOnDash(true);
         setIsEditingEntity(false);
     };
 
@@ -130,8 +181,23 @@ export default function Registries() {
             setNewCatAccCode(item.accountingCode || '');
         }
         if (activeTab === 'ACCOUNT') {
-            setEntityInitialBal(item.initialBalance?.toString() || '0');
+            const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+            const targetChurch = data.churches.find(c => c.id === targetChurchId);
+
+            // NEW: Load Initial Balance from current church settings or fallback
+            const customInitial = targetChurch?.settings?.initialBalances?.[item.id];
+            if (customInitial !== undefined) {
+                setEntityInitialBal(customInitial.toString());
+            } else if (item.churchId === targetChurchId) {
+                setEntityInitialBal(item.initialBalance?.toString() || '0');
+            } else {
+                setEntityInitialBal('0');
+            }
+
             setNewAccAccCode(item.accountingCode || '');
+
+            const isHidden = targetChurch?.settings?.hiddenAccounts?.includes(item.id);
+            setEntityShowOnDash(!isHidden);
         }
         if (activeTab === 'FUND') {
             setEntityDesc(item.description || '');
@@ -180,22 +246,21 @@ export default function Registries() {
         sortedFunds[index] = sortedFunds[otherIndex];
         sortedFunds[otherIndex] = temp;
 
-        // Update ALL funds with new order derived from index
-        // This ensures the order is always clean and sequential (0, 1, 2...)
-        // We only await the updates that actually changed to save bandwidth, 
-        // but given the small list size, updating all or just the swapped ones is fine.
-        // For 100% robustness, let's update all that have a diff order.
+        // NEW: Update Individual Church Settings
+        const newOrder = sortedFunds.map(f => f.id);
+        const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+        const targetChurch = data.churches.find(c => c.id === targetChurchId);
 
-        for (let i = 0; i < sortedFunds.length; i++) {
-            const fund = sortedFunds[i];
-            if (fund.order !== i) {
-                await updateFund({ ...fund, order: i });
-            }
+        if (targetChurch) {
+            await updateChurch({
+                ...targetChurch,
+                settings: { ...targetChurch.settings, fundOrder: newOrder }
+            });
         }
     };
 
     const handleMoveAccount = async (index: number, direction: 'up' | 'down') => {
-        const sortedAccounts = [...getEntities()];
+        const sortedAccounts = [...entities];
         if (direction === 'up' && index === 0) return;
         if (direction === 'down' && index === sortedAccounts.length - 1) return;
 
@@ -204,16 +269,45 @@ export default function Registries() {
         sortedAccounts[index] = sortedAccounts[otherIndex];
         sortedAccounts[otherIndex] = temp;
 
-        const updates: any[] = [];
-        for (let i = 0; i < sortedAccounts.length; i++) {
-            if ((sortedAccounts[i].order ?? -1) !== i) {
-                const updated = { ...sortedAccounts[i], order: i };
-                updates.push(updated);
-            }
-        }
+        // Update Individual Church Settings
+        const newOrder = sortedAccounts.map(a => a.id);
+        const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+        const targetChurch = data.churches.find(c => c.id === targetChurchId);
 
-        if (updates.length > 0) {
-            await reorderAccounts(updates);
+        if (targetChurch) {
+            await updateChurch({
+                ...targetChurch,
+                settings: { ...targetChurch.settings, accountOrder: newOrder }
+            });
+        }
+    };
+
+    const handleMoveCategory = async (id: string, direction: 'UP' | 'DOWN', type: TransactionType) => {
+        const typeEntities = entities.filter((e: any) => e.type === type);
+        const index = typeEntities.findIndex((e: any) => e.id === id);
+
+        if (direction === 'UP' && index === 0) return;
+        if (direction === 'DOWN' && index === typeEntities.length - 1) return;
+
+        const otherIndex = direction === 'UP' ? index - 1 : index + 1;
+        const newTypeEntities = [...typeEntities];
+        const temp = newTypeEntities[index];
+        newTypeEntities[index] = newTypeEntities[otherIndex];
+        newTypeEntities[otherIndex] = temp;
+
+        // Merge back with other types to get full list in correct order
+        const otherTypeEntities = entities.filter((e: any) => e.type !== type);
+        const allSorted = [...newTypeEntities, ...otherTypeEntities];
+
+        const newOrder = allSorted.map(c => c.id);
+        const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+        const targetChurch = data.churches.find(c => c.id === targetChurchId);
+
+        if (targetChurch) {
+            await updateChurch({
+                ...targetChurch,
+                settings: { ...targetChurch.settings, categoryOrder: newOrder }
+            });
         }
     };
 
@@ -231,8 +325,49 @@ export default function Registries() {
                 const cat: any = { id: entityId || genId(), name: entityName, type: entityType, churchId: currentChurchId!, accountingCode: newCatAccCode, icon: entityIcon };
                 if (entityId) await updateCategory(cat); else await addCategory(cat);
             } else if (activeTab === 'ACCOUNT') {
-                const acc: any = { id: entityId || genId(), name: entityName, initialBalance: parseFloat(entityInitialBal) || 0, churchId: currentChurchId!, accountingCode: newAccAccCode || '1.02', icon: entityIcon };
+                const accId = entityId || genId();
+                const initialVal = parseFloat(entityInitialBal) || 0;
+
+                // Find existing account to check ownership
+                const existingAcc = entityId ? data.accounts.find(a => a.id === entityId) : null;
+                const isOwner = !existingAcc || existingAcc.churchId === currentChurchId;
+
+                const acc: any = {
+                    id: accId,
+                    name: entityName,
+                    // If not owner, keep existing initial balance to avoid affecting other churches
+                    initialBalance: isOwner ? initialVal : (existingAcc?.initialBalance || 0),
+                    churchId: existingAcc?.churchId || currentChurchId!,
+                    accountingCode: newAccAccCode || '1.02',
+                    icon: entityIcon,
+                };
+
                 if (entityId) await updateAccount(acc); else await addAccount(acc);
+
+                // Update Church Preferences (Individual for each church)
+                const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+                const targetChurch = data.churches.find(c => c.id === targetChurchId);
+                if (targetChurch) {
+                    let hidden = [...(targetChurch.settings?.hiddenAccounts || [])];
+                    if (!entityShowOnDash) {
+                        if (!hidden.includes(accId)) hidden.push(accId);
+                    } else {
+                        hidden = hidden.filter(id => id !== accId);
+                    }
+
+                    // Save the Specific Initial Balance for THIS church
+                    const initialBalances = { ...(targetChurch.settings?.initialBalances || {}) };
+                    initialBalances[accId] = initialVal;
+
+                    await updateChurch({
+                        ...targetChurch,
+                        settings: {
+                            ...targetChurch.settings,
+                            hiddenAccounts: hidden,
+                            initialBalances: initialBalances
+                        }
+                    });
+                }
             } else if (activeTab === 'COST_CENTER') {
                 const cc: any = { id: entityId || genId(), name: entityName, churchId: currentChurchId! };
                 if (entityId) await updateCostCenter(cc); else await addCostCenter(cc);
@@ -408,6 +543,17 @@ export default function Registries() {
                                                         ))}
                                                     </select>
                                                 </div>
+                                                <div className="md:col-span-2">
+                                                    <label className="flex items-center gap-2 cursor-pointer p-3 bg-white dark:bg-slate-800 rounded border border-gray-200 dark:border-slate-600 hover:border-blue-300 transition-colors">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={entityShowOnDash}
+                                                            onChange={(e) => setEntityShowOnDash(e.target.checked)}
+                                                            className="w-4 h-4 text-blue-600 rounded"
+                                                        />
+                                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Exibir esta conta na Visão Geral (Dashboard)</span>
+                                                    </label>
+                                                </div>
                                             </div>
                                         )}
 
@@ -474,6 +620,10 @@ export default function Registries() {
                                                             </div>
                                                         </div>
                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="flex flex-col mr-1">
+                                                                <button onClick={() => handleMoveCategory(item.id, 'UP', item.type)} className="p-0.5 text-gray-400 hover:text-blue-600"><ChevronUp size={12} /></button>
+                                                                <button onClick={() => handleMoveCategory(item.id, 'DOWN', item.type)} className="p-0.5 text-gray-400 hover:text-blue-600"><ChevronDown size={12} /></button>
+                                                            </div>
                                                             <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 dark:hover:bg-slate-600"><Edit2 size={14} /></button>
                                                             <button onClick={() => handleDeleteEntity(item.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 dark:hover:bg-slate-600"><Trash2 size={14} /></button>
                                                         </div>
@@ -516,6 +666,10 @@ export default function Registries() {
                                                             </div>
                                                         </div>
                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="flex flex-col mr-1">
+                                                                <button onClick={() => handleMoveCategory(item.id, 'UP', item.type)} className="p-0.5 text-gray-400 hover:text-blue-600"><ChevronUp size={12} /></button>
+                                                                <button onClick={() => handleMoveCategory(item.id, 'DOWN', item.type)} className="p-0.5 text-gray-400 hover:text-blue-600"><ChevronDown size={12} /></button>
+                                                            </div>
                                                             <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-gray-100 dark:hover:bg-slate-600"><Edit2 size={14} /></button>
                                                             <button onClick={() => handleDeleteEntity(item.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-100 dark:hover:bg-slate-600"><Trash2 size={14} /></button>
                                                         </div>

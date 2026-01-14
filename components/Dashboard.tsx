@@ -21,13 +21,15 @@ interface DashboardProps {
 
   members?: Member[];
   systemMode?: 'FINANCE' | 'SECRETARY';
+  activeChurchId?: string;
+  churches?: Church[];
 }
 
 type TimeRange = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#475569', '#14b8a6'];
 
-const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categories, budgets, accounts, funds = [], onNewTransaction, onEdit, userRole, members = [], systemMode = 'FINANCE' }) => {
+const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categories, budgets, accounts, funds = [], onNewTransaction, onEdit, userRole, members = [], systemMode = 'FINANCE', activeChurchId, churches = [] }) => {
   // ... existing state ...
   // (Skipping purely unchanged lines for brevity in replacement, but I must match exact target content)
 
@@ -38,6 +40,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
   // I will just modify the component signature and the interface first.
 
   const [timeRange, setTimeRange] = useState<TimeRange>('MONTHLY');
+  const [accountFilter, setAccountFilter] = useState<string>('ALL');
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Privacy State (Persisted)
@@ -72,7 +75,34 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     const fndBalances = new Map<string, number>();
 
     // Initialize with zeros or initial values
-    accounts.forEach(a => accBalances.set(a.id, a.initialBalance));
+    accounts.forEach(a => {
+      if (!activeChurchId || activeChurchId === 'ALL') {
+        // Consolidated View: Sum of current settings + defaults
+        let totalInitial = 0;
+        churches.forEach(c => {
+          const customInitial = c.settings?.initialBalances?.[a.id];
+          if (customInitial !== undefined) {
+            totalInitial += customInitial;
+          } else if (a.churchId === c.id) {
+            // Only add default if this church is the OWNER
+            totalInitial += a.initialBalance;
+          }
+        });
+        accBalances.set(a.id, totalInitial);
+      } else {
+        // Individual View
+        const activeChurch = churches.find(c => c.id === activeChurchId);
+        const customInitial = activeChurch?.settings?.initialBalances?.[a.id];
+
+        let initial = 0;
+        if (customInitial !== undefined) {
+          initial = customInitial;
+        } else if (a.churchId === activeChurchId) {
+          initial = a.initialBalance;
+        }
+        accBalances.set(a.id, initial);
+      }
+    });
     funds.forEach(f => fndBalances.set(f.id, 0));
 
     // Single pass through ALL transactions
@@ -93,8 +123,41 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     });
 
     return {
-      globalAccountBalances: accounts.map(a => ({ ...a, currentBalance: accBalances.get(a.id) || 0 })).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)),
-      globalFundBalances: funds.map(f => ({ ...f, balance: fndBalances.get(f.id) || 0 })).sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      globalAccountBalances: accounts
+        .filter(a => {
+          if (!activeChurchId || activeChurchId === 'ALL') return true;
+          const activeChurch = churches.find(c => c.id === activeChurchId);
+          const isHidden = activeChurch?.settings?.hiddenAccounts?.includes(a.id);
+          return !isHidden;
+        })
+        .map(a => ({ ...a, currentBalance: accBalances.get(a.id) || 0 }))
+        .sort((a, b) => {
+          if (!activeChurchId || activeChurchId === 'ALL') return (a.order ?? 999) - (b.order ?? 999);
+          const activeChurch = churches.find(c => c.id === activeChurchId);
+          const orderList = activeChurch?.settings?.accountOrder || [];
+          if (orderList.length > 0) {
+            const idxA = orderList.indexOf(a.id);
+            const idxB = orderList.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+          }
+          return (a.order ?? 999) - (b.order ?? 999);
+        }),
+      globalFundBalances: funds.map(f => ({ ...f, balance: fndBalances.get(f.id) || 0 }))
+        .sort((a, b) => {
+          if (!activeChurchId || activeChurchId === 'ALL') return (a.order ?? 999) - (b.order ?? 999);
+          const activeChurch = churches.find(c => c.id === activeChurchId);
+          const orderList = activeChurch?.settings?.fundOrder || [];
+          if (orderList.length > 0) {
+            const idxA = orderList.indexOf(a.id);
+            const idxB = orderList.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+          }
+          return (a.order ?? 999) - (b.order ?? 999);
+        })
     };
   }, [transactions, accounts, funds]);
 
@@ -108,9 +171,11 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     return transactions.filter(t => {
       // String comparison is safer for YYYY-MM-DD dates to avoid timezone shifts
       // t.date is already YYYY-MM-DD from Supabase
-      return t.date >= startDateStr && t.type !== TransactionType.TRANSFER;
+      const matchesDate = t.date >= startDateStr && t.type !== TransactionType.TRANSFER;
+      const matchesAccount = accountFilter === 'ALL' ? true : t.accountId === accountFilter;
+      return matchesDate && matchesAccount;
     });
-  }, [transactions, startDate]);
+  }, [transactions, startDate, accountFilter]);
 
   // --- OPTIMIZATION: KPI Totals ---
   const { income, expense, balance } = useMemo(() => {
@@ -164,7 +229,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     const limitDate = new Date(today);
     limitDate.setDate(today.getDate() + 60); // 60 Days Projection
 
-    scheduled.filter(s => s.isActive).forEach(Item => {
+    scheduled.filter(s => s.isActive && (accountFilter === 'ALL' ? true : s.accountId === accountFilter)).forEach(Item => {
       let currentDue = new Date(Item.dueDate);
       // Adjust if due date is in the past (simulate next recurrence)
       // For MVP, we respect the Item.dueDate. If it's past, it's late (we could show as late, but let's skip for projection).
@@ -211,7 +276,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
   }, [filteredTransactions, scheduled, timeRange]);
 
   // --- OPTIMIZATION: Pie Data ---
-  const pieData = useMemo(() => {
+  const { pieData, totalExpensesPeriod } = useMemo(() => {
     const expenses = filteredTransactions.filter(t => t.type === TransactionType.EXPENSE);
     const grouped: Record<string, number> = {};
     let totalExp = 0;
@@ -220,10 +285,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
       grouped[catName] = (grouped[catName] || 0) + t.amount;
       totalExp += t.amount;
     });
-    return Object.entries(grouped)
+    const parsedData = Object.entries(grouped)
       .map(([name, value]) => ({ name, value, percent: totalExp > 0 ? (value / totalExp) * 100 : 0 }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
+
+    return { pieData: parsedData, totalExpensesPeriod: totalExp };
   }, [filteredTransactions, categories]);
 
   // --- OPTIMIZATION: Growth Calculation ---
@@ -253,7 +320,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
   const scheduleAlerts = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     return scheduled
-      .filter(item => item.isActive)
+      .filter(item => item.isActive && (accountFilter === 'ALL' ? true : item.accountId === accountFilter))
       .map(item => {
         const [y, m, d] = item.dueDate.split('-').map(Number);
         const dueDate = new Date(y, m - 1, d);
@@ -504,10 +571,32 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
             Monitoramento de caixa, contas e indicadores.
           </p>
         </div>
-        <div className="bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm inline-flex items-center overflow-x-auto max-w-full">
-          {timeFilters.map(filter => (
-            <button key={filter.value} onClick={() => setTimeRange(filter.value)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all outline-none whitespace-nowrap focus:ring-2 focus:ring-blue-500/50 ${timeRange === filter.value ? 'bg-gray-900 dark:bg-slate-600 text-white shadow-md transform scale-105' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>{filter.label}</button>
-          ))}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm inline-flex items-center overflow-x-auto max-w-full">
+            {timeFilters.map(filter => (
+              <button key={filter.value} onClick={() => setTimeRange(filter.value)} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all outline-none whitespace-nowrap focus:ring-2 focus:ring-blue-500/50 ${timeRange === filter.value ? 'bg-gray-900 dark:bg-slate-600 text-white shadow-md transform scale-105' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>{filter.label}</button>
+            ))}
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm inline-flex items-center">
+            <Landmark size={14} className="text-gray-400 ml-2 mr-1" />
+            <select
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+              className="bg-transparent text-xs font-bold outline-none text-gray-700 dark:text-gray-300 pr-2 cursor-pointer"
+            >
+              <option value="ALL">Todas as Contas</option>
+              {accounts
+                .filter(a => {
+                  if (!activeChurchId || activeChurchId === 'ALL') return true;
+                  const activeChurch = churches.find(c => c.id === activeChurchId);
+                  return !activeChurch?.settings?.hiddenAccounts?.includes(a.id);
+                })
+                .map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -582,22 +671,36 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
             <Landmark size={20} className="text-indigo-500" /> Contas Bancárias
           </h3>
           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {globalAccountBalances.map(acc => (
-              <div key={acc.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-between group hover:border-indigo-200 dark:hover:border-indigo-800 transition-all relative overflow-hidden">
-                <div className="absolute right-0 top-0 h-full w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div>
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{acc.name}</p>
-                  <p className={`text-xl font-bold tracking-tight ${acc.currentBalance >= 0 ? 'text-gray-900 dark:text-white' : 'text-rose-600'}`}>{formatValue(acc.currentBalance)}</p>
+            {globalAccountBalances
+              .filter(acc => accountFilter === 'ALL' ? true : acc.id == accountFilter)
+              .map(acc => (
+                <div key={acc.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-between group hover:border-indigo-200 dark:hover:border-indigo-800 transition-all relative overflow-hidden">
+                  <div className="absolute right-0 top-0 h-full w-1 bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{acc.name}</p>
+                    <p className={`text-xl font-bold tracking-tight ${acc.currentBalance >= 0 ? 'text-gray-900 dark:text-white' : 'text-rose-600'}`}>{formatValue(acc.currentBalance)}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-gray-400 group-hover:text-indigo-500 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors shadow-sm overflow-hidden">
+                    {acc.icon ? (
+                      ICON_MAP[acc.icon] ? React.createElement(ICON_MAP[acc.icon], { size: 20 }) : <img src={acc.icon} className="w-full h-full object-cover" />
+                    ) : (
+                      <Landmark size={20} />
+                    )}
+                  </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-slate-700 flex items-center justify-center text-gray-400 group-hover:text-indigo-500 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors shadow-sm overflow-hidden">
-                  {acc.icon ? (
-                    ICON_MAP[acc.icon] ? React.createElement(ICON_MAP[acc.icon], { size: 20 }) : <img src={acc.icon} className="w-full h-full object-cover" />
-                  ) : (
-                    <Landmark size={20} />
-                  )}
-                </div>
+              ))}
+
+            {globalAccountBalances.length > 0 && globalAccountBalances.filter(acc => accountFilter === 'ALL' ? true : acc.id == accountFilter).length === 0 && (
+              <div className="col-span-full p-8 text-center bg-gray-50 dark:bg-slate-700/30 rounded-2xl border-2 border-dashed border-gray-100 dark:border-slate-700">
+                <p className="text-gray-400 text-sm">Conta não encontrada ou sem saldo no período.</p>
               </div>
-            ))}
+            )}
+
+            {globalAccountBalances.length === 0 && (
+              <div className="col-span-full p-8 text-center bg-gray-50 dark:bg-slate-700/30 rounded-2xl border-2 border-dashed border-gray-100 dark:border-slate-700">
+                <p className="text-gray-400 text-sm">Nenhuma conta bancária cadastrada para esta igreja.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -669,8 +772,8 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
                       <Tooltip content={<CustomAreaTooltip />} />
                       <Legend verticalAlign="top" height={36} iconType="circle" align="right" />
 
-                      <Area type="monotone" dataKey="income" name="Entradas" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" strokeWidth={2} />
-                      <Area type="monotone" dataKey="expense" name="Saídas" stroke="#f43f5e" fillOpacity={1} fill="url(#colorExpense)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="income" name="Entradas" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" strokeWidth={3} />
+                      <Area type="monotone" dataKey="expense" name="Saídas" stroke="#f43f5e" fillOpacity={1} fill="url(#colorExpense)" strokeWidth={3} />
 
                       {/* Projections - Dashed Areas */}
                       <Area type="monotone" dataKey="incomeProjected" name="Ent. Prevista" stroke="#10b981" strokeDasharray="5 5" fillOpacity={0.1} fill="#10b981" strokeWidth={2} />
@@ -697,24 +800,33 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={85}
-                        paddingAngle={5}
-                        cornerRadius={6}
+                        innerRadius={72}
+                        outerRadius={95}
+                        paddingAngle={4}
+                        cornerRadius={8}
                         dataKey="value"
                         onMouseEnter={onPieEnter}
-                        animationDuration={800}
+                        animationDuration={1000}
                       >
                         {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />))}
                       </Pie>
                       <Tooltip content={<CustomPieTooltip />} />
+
+                      {/* Central Label for Total */}
+                      <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" className="fill-gray-400 dark:fill-slate-500 text-[10px] font-bold uppercase tracking-widest">
+                        Total Geral
+                      </text>
+                      <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" className="fill-gray-800 dark:fill-white text-lg font-black tabular-nums">
+                        {hideValues ? '••••' : formatValue(totalExpensesPeriod).replace('R$', '').trim()}
+                      </text>
+
                       <Legend
                         verticalAlign="bottom"
-                        height={36}
+                        height={40}
                         iconType="circle"
                         formatter={(value, entry: any) => {
                           const { payload } = entry;
-                          return <span className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">{value} ({payload.percent.toFixed(0)}%)</span>;
+                          return <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 ml-1">{value} ({payload.percent.toFixed(0)}%)</span>;
                         }}
                       />
                     </PieChart>

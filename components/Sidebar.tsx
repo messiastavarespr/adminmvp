@@ -76,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, systemMode = 'FINANC
       title: 'Principal',
       items: [
         { path: '/dashboard', label: 'Visão Geral', icon: LayoutDashboard },
+        { path: '/analytics', label: 'Inteligência', icon: BarChart3 },
         { path: '/members', label: 'Membros', icon: UserCheck },
       ]
     },
@@ -94,7 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, systemMode = 'FINANC
       items: [
         { path: '/reports', label: 'Relatórios', icon: BarChart3 },
         { path: '/assets', label: 'Patrimônio', icon: Archive },
-        { path: '/registries', label: 'Tabelas Auxiliares', icon: Database, roles: ['MASTER', 'ADMIN', 'TREASURER', 'PASTOR', 'SECRETARY'] },
+        { path: '/registries', label: 'Cadastro', icon: Database, roles: ['MASTER', 'ADMIN', 'TREASURER', 'PASTOR', 'SECRETARY'] },
         { path: '/tools', label: 'Ferramentas', icon: FileJson },
         { path: '/settings', label: 'Configurações', icon: SettingsIcon },
       ]

@@ -21,7 +21,15 @@ export enum UserRole {
   MEMBER = 'MEMBER'
 }
 
-export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries' | 'tithes' | 'assets';
+export type AppView = 'dashboard' | 'ledger' | 'scheduled' | 'payables' | 'reports' | 'members' | 'settings' | 'reconciliation' | 'tools' | 'chartOfAccounts' | 'registries' | 'tithes' | 'assets' | 'analytics';
+
+export interface ChurchSettings {
+  hiddenAccounts?: string[]; // IDs das contas que esta igreja deseja OCULTAR no Dashboard
+  accountOrder?: string[];   // Ordenação customizada de IDs por igreja
+  fundOrder?: string[];      // Ordenação customizada de fundos por igreja
+  categoryOrder?: string[];  // Ordenação customizada de categorias por igreja
+  initialBalances?: Record<string, number>; // [accountID]: saldo_inicial_nesta_igreja
+}
 
 export interface Church {
   id: string;
@@ -37,6 +45,7 @@ export interface Church {
   city?: string;
   state?: string;
   zipCode?: string;
+  settings?: ChurchSettings;
 }
 
 export interface CostCenter {

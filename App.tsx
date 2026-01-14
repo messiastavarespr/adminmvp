@@ -28,6 +28,7 @@ const Reconciliation = React.lazy(() => import('./components/Reconciliation'));
 const AccountsPayable = React.lazy(() => import('./components/AccountsPayable'));
 const Assets = React.lazy(() => import('./components/Assets'));
 const Registries = React.lazy(() => import('./components/Registries'));
+const Analytics = React.lazy(() => import('./components/Analytics'));
 const PublicMemberRegistration = React.lazy(() => import('./components/secretary/PublicMemberRegistration'));
 import { ProfilePage } from './components/ProfilePage';
 import WarningModal from './components/warning/WarningModal';
@@ -175,9 +176,17 @@ function AppContent() {
 
   const filteredTransactions = data.transactions.filter(t => activeChurchId === 'ALL' ? true : t.churchId === activeChurchId);
   const filteredScheduled = data.scheduled.filter(s => activeChurchId === 'ALL' ? true : s.churchId === activeChurchId);
-  const filteredCategories = data.categories.filter(c => activeChurchId === 'ALL' ? true : c.churchId === activeChurchId);
+
+  // Categories Sharing: Show active church categories OR Headquarters categories
+  const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
+  const filteredCategories = data.categories.filter(c =>
+    activeChurchId === 'ALL' ? true : (c.churchId === activeChurchId || c.churchId === hqId)
+  );
+
   const filteredCostCenters = data.costCenters.filter(cc => activeChurchId === 'ALL' ? true : cc.churchId === activeChurchId);
-  const filteredAccounts = data.accounts.filter(a => activeChurchId === 'ALL' ? true : a.churchId === activeChurchId);
+  const filteredAccounts = data.accounts.filter(a =>
+    activeChurchId === 'ALL' ? true : (a.churchId === activeChurchId || a.churchId === hqId)
+  );
   const filteredMembers = data.members.filter(m => activeChurchId === 'ALL' ? true : m.churchId === activeChurchId);
   const filteredBudgets = data.budgets.filter(b => activeChurchId === 'ALL' ? true : b.churchId === activeChurchId);
 
@@ -362,8 +371,17 @@ function AppContent() {
                   onNewTransaction={openNewTransaction}
                   onEdit={handleEditTransaction}
                   userRole={currentUser.role}
-                  members={filteredAppData.members}
                   systemMode={systemMode}
+                  activeChurchId={activeChurchId}
+                  churches={data.churches}
+                />
+              } />
+              <Route path="/analytics" element={
+                <Analytics
+                  transactions={filteredAppData.transactions}
+                  categories={filteredAppData.categories}
+                  churches={data.churches}
+                  activeChurchId={activeChurchId}
                 />
               } />
               <Route path="/ledger" element={
