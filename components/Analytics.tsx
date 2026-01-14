@@ -19,8 +19,14 @@ interface AnalyticsProps {
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#475569', '#14b8a6'];
 
+const parseDateSafe = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d || 1, 0, 0, 0);
+};
+
 const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churches, activeChurchId }) => {
-    const [timeRange, setTimeRange] = useState<'12M' | '6M' | '3M' | 'MONTH'>('12M');
+    const [timeRange, setTimeRange] = useState<'YEAR' | 'MONTH'>('YEAR');
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
     // --- DATA PROCESSING: Strategic Flow ---
     const strategicData = useMemo(() => {
@@ -44,11 +50,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
                 };
             }
         } else {
-            // Monthly view for last X months
-            const monthsToInlcude = timeRange === '12M' ? 12 : timeRange === '6M' ? 6 : 3;
-            for (let i = monthsToInlcude - 1; i >= 0; i--) {
-                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            // Monthly view for FIXED YEAR (Jan to Dec)
+            for (let i = 0; i < 12; i++) {
+                const d = new Date(selectedYear, i, 1);
+                const key = `${selectedYear}-${String(i + 1).padStart(2, '0')}`;
                 dataMap[key] = {
                     name: d.toLocaleDateString('pt-BR', { month: 'short' }),
                     fullName: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
@@ -62,7 +67,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
         }
 
         transactions.forEach(t => {
-            const d = new Date(t.date);
+            const d = parseDateSafe(t.date);
             const key = timeRange === 'MONTH'
                 ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
                 : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -82,18 +87,25 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
             m.accBalance = runningBalance;
             return m;
         });
-    }, [transactions, timeRange]);
+    }, [transactions, timeRange, selectedYear]);
 
     // --- METRICS ---
     const metrics = useMemo(() => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const totalIncome = transactions.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
-        const totalExpense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
+        // Filter transactions for the selected context
+        const yearTransactions = transactions.filter(t => parseDateSafe(t.date).getFullYear() === selectedYear);
+        const monthTransactions = transactions.filter(t => {
+            const d = parseDateSafe(t.date);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+        });
 
-        const monthIncome = transactions.filter(t => t.type === TransactionType.INCOME && new Date(t.date) >= startOfMonth).reduce((acc, t) => acc + t.amount, 0);
-        const monthExpense = transactions.filter(t => t.type === TransactionType.EXPENSE && new Date(t.date) >= startOfMonth).reduce((acc, t) => acc + t.amount, 0);
+        const totalIncome = yearTransactions.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
+        const totalExpense = yearTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
+
+        const monthIncome = monthTransactions.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
+        const monthExpense = monthTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
 
         const netProfit = totalIncome - totalExpense;
         const efficiency = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
@@ -106,7 +118,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
             netProfit,
             efficiency
         };
-    }, [transactions]);
+    }, [transactions, selectedYear]);
 
     const formatValue = (val: number) => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -126,19 +138,30 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">Análise estratégica e saúde financeira em tempo real</p>
                 </div>
-                <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
-                    {(['MONTH', '3M', '6M', '12M'] as const).map((range) => (
-                        <button
-                            key={range}
-                            onClick={() => setTimeRange(range)}
-                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${timeRange === range
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
+                <div className="flex items-center gap-4">
+                    {timeRange === 'YEAR' && (
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            className="bg-white dark:bg-slate-800 border-none rounded-xl px-3 py-2 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer text-gray-700 dark:text-gray-200"
                         >
-                            {range === '12M' ? 'Últimos 12 Meses' : range === '6M' ? '6 Meses' : range === '3M' ? '3 Meses' : 'Este Mês'}
-                        </button>
-                    ))}
+                            {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    )}
+                    <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
+                        {(['MONTH', 'YEAR'] as const).map((range) => (
+                            <button
+                                key={range}
+                                onClick={() => setTimeRange(range)}
+                                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${timeRange === range
+                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
+                            >
+                                {range === 'YEAR' ? 'Visão Anual' : 'Este Mês'}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -148,10 +171,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <TrendingUp size={48} className="text-emerald-500" />
                     </div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{timeRange === 'MONTH' ? 'Entradas (Mês)' : 'Arrecadação Total'}</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{timeRange === 'MONTH' ? 'Entradas (Mês)' : `Arrecadação (${selectedYear})`}</p>
                     <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{formatValue(timeRange === 'MONTH' ? metrics.monthIncome : metrics.totalIncome)}</p>
                     <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full w-fit">
-                        <ArrowUpRight size={12} /> {timeRange === 'MONTH' ? 'Performance Mensal' : 'Performance Total'}
+                        <ArrowUpRight size={12} /> {timeRange === 'MONTH' ? 'Performance Mensal' : `Total de ${selectedYear}`}
                     </div>
                 </div>
 
@@ -159,10 +182,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <TrendingDown size={48} className="text-rose-500" />
                     </div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{timeRange === 'MONTH' ? 'Saídas (Mês)' : 'Custo Operacional'}</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{timeRange === 'MONTH' ? 'Saídas (Mês)' : `Custo (${selectedYear})`}</p>
                     <p className="text-2xl font-black text-rose-600 dark:text-rose-400 tabular-nums">{formatValue(timeRange === 'MONTH' ? metrics.monthExpense : metrics.totalExpense)}</p>
                     <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-slate-700/50 px-2 py-1 rounded-full w-fit">
-                        {timeRange === 'MONTH' ? 'Gastos do Período' : 'Histórico Consolidado'}
+                        {timeRange === 'MONTH' ? 'Gastos do Período' : `Consolidado de ${selectedYear}`}
                     </div>
                 </div>
 
@@ -271,6 +294,71 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions, categories, churche
                             />
                         </ComposedChart>
                     </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Annual Consolidated Table */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+                <div className="p-8 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Demonstrativo Consolidado</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Detalhamento numérico {timeRange === 'MONTH' ? 'do mês atual' : `do ano de ${selectedYear}`}</p>
+                    </div>
+                    {timeRange === 'YEAR' && (
+                        <div className="relative">
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                className="appearance-none bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-200 py-2 pl-4 pr-10 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none"
+                            >
+                                {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 dark:text-gray-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-50/50 dark:bg-slate-900/50 text-[10px] uppercase tracking-widest text-gray-400 font-black">
+                                <th className="px-8 py-4">{timeRange === 'MONTH' ? 'Dia' : 'Mês'}</th>
+                                <th className="px-8 py-4 text-right">Entradas</th>
+                                <th className="px-8 py-4 text-right">Saídas</th>
+                                <th className="px-8 py-4 text-right">Saldo Período</th>
+                                <th className="px-8 py-4 text-right">Saldo Acumulado</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                            {strategicData.map((row: any, idx: number) => (
+                                <tr key={row.date} className="border-b border-gray-50 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                    <td className="px-8 py-4 font-bold text-gray-700 dark:text-gray-300">{row.name}</td>
+                                    <td className="px-8 py-4 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatValue(row.income)}</td>
+                                    <td className="px-8 py-4 text-right text-rose-600 dark:text-rose-400 font-medium">({formatValue(row.expense)})</td>
+                                    <td className={`px-8 py-4 text-right font-black ${row.balance >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600'}`}>
+                                        {formatValue(row.balance)}
+                                    </td>
+                                    <td className="px-8 py-4 text-right text-gray-500 dark:text-gray-400 tabular-nums">{formatValue(row.accBalance)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                            <tr className="bg-indigo-600 text-white font-black">
+                                <td className="px-8 py-6 rounded-bl-3xl">MÉDIA MENSAL</td>
+                                <td className="px-8 py-6 text-right">
+                                    {formatValue(strategicData.reduce((acc: number, r: any) => acc + r.income, 0) / strategicData.length)}
+                                </td>
+                                <td className="px-8 py-6 text-right">
+                                    ({formatValue(strategicData.reduce((acc: number, r: any) => acc + r.expense, 0) / strategicData.length)})
+                                </td>
+                                <td className="px-8 py-6 text-right bg-indigo-700">
+                                    {formatValue(strategicData.reduce((acc: number, r: any) => acc + (r.income - r.expense), 0) / strategicData.length)}
+                                </td>
+                                <td className="px-8 py-6 text-right rounded-br-3xl">---</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
 
