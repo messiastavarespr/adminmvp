@@ -152,7 +152,11 @@ const ScheduledTransactions: React.FC<ScheduledTransactionsProps> = ({
       return;
     }
     setPayItem(item);
-    setPaymentAccountId(accounts[0].id); // Default to first
+
+    // Default to Sicoob if available, otherwise first account
+    const sicoobAccount = accounts.find(acc => acc.name.toLowerCase().includes('sicoob'));
+    setPaymentAccountId(sicoobAccount ? sicoobAccount.id : accounts[0].id);
+
     setPaymentDate(new Date().toISOString().split('T')[0]); // Default to today
   };
 
