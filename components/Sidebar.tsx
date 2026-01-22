@@ -114,6 +114,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, systemMode = 'FINANC
       if (item.roles && userRole && !item.roles.includes(userRole)) {
         return false;
       }
+      
+      // Hide 'Inteligência' from MVPSec
+      if (systemMode === 'SECRETARY' && item.label === 'Inteligência') {
+        return false;
+      }
+
       return true;
     });
 

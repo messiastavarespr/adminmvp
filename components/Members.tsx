@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, UserRole } from '../types';
-import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter, ArrowLeftRight, Share2, Copy, AlertTriangle } from './ui/Icons';
+import { UserCheck, Plus, Trash2, Briefcase, Users, Search, Edit2, User, MapPin, Mail, Phone, Calendar, FileText, Save, X, Eye, FileSpreadsheet, LayoutList, LayoutGrid, Tag, Cake, Filter, ArrowLeftRight, Share2, Copy, AlertTriangle, Download } from './ui/Icons';
 import MergeMembersModal from './MergeMembersModal';
 import { useFinance } from '../contexts/FinanceContext';
 import ConfirmationModal from './ConfirmationModal';
@@ -118,6 +118,41 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
     }
   };
 
+  const handleExport = () => {
+    // 1. Define Headers
+    const headers = ['Nome', 'Tipo', 'Status', 'Telefone', 'Email', 'Endereço', 'Cidade', 'Nascimento'];
+
+    // 2. Map Data
+    const csvContent = [
+      headers.join(','),
+      ...displayedMembers.map(m => {
+        const type = m.type === 'MEMBER' ? 'Membro' : m.type === 'VISITOR' ? 'Visitante' : 'Fornecedor';
+        const status = m.status === 'ACTIVE' ? 'Ativo' : m.status === 'INACTIVE' ? 'Inativo' : m.status === 'PENDING' ? 'Pendente' : 'Observação';
+
+        return [
+          `"${m.name}"`,
+          type,
+          status,
+          `"${m.phone || ''}"`,
+          `"${m.email || ''}"`,
+          `"${m.address || ''}"`,
+          `"${m.city || ''}"`,
+          `"${m.birthDate ? new Date(m.birthDate).toLocaleDateString('pt-BR') : ''}"`
+        ].join(',');
+      })
+    ].join('\n');
+
+    // 3. Create Blob and Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `membros_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header & Controls */}
@@ -176,6 +211,14 @@ const Members: React.FC<MembersProps> = ({ members, onUpdate, userRole, currentC
 
             {canEdit && (
               <>
+                <button
+                  onClick={handleExport}
+                  className="flex items-center justify-center gap-2 bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm shrink-0"
+                  title="Exportar CSV"
+                >
+                  <Download size={18} /> <span className="hidden lg:inline">Exportar</span>
+                </button>
+
                 <button
                   onClick={() => setIsImportModalOpen(true)}
                   className="flex items-center justify-center gap-2 bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm shrink-0"
