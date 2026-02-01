@@ -75,6 +75,19 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
   const totalExpense = filteredTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
   const periodBalance = totalIncome - totalExpense;
 
+  const previousTransactions = transactions
+    .filter(t => t.date.split('T')[0] < startDate)
+    .filter(t => filterAccount === 'ALL' || t.accountId === filterAccount)
+    .filter(t => filterCategory === 'ALL' || t.categoryId === filterCategory)
+    .filter(t => filterCostCenter === 'ALL' || t.costCenterId === filterCostCenter)
+    .filter(t => filterFund === 'ALL' || t.fundId === filterFund);
+
+  const previousIncome = previousTransactions.filter(t => t.type === TransactionType.INCOME).reduce((acc, t) => acc + t.amount, 0);
+  const previousExpense = previousTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((acc, t) => acc + t.amount, 0);
+  const previousBalance = previousIncome - previousExpense;
+
+  const currentBalance = previousBalance + periodBalance;
+
   const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const handleExportExcel = () => {
@@ -119,10 +132,59 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30 flex justify-between"><div><p className="text-xs font-bold text-emerald-600 uppercase">Entradas</p><p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatter.format(totalIncome)}</p></div><TrendingUp className="text-emerald-500" /></div>
-          <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-100 dark:border-rose-800/30 flex justify-between"><div><p className="text-xs font-bold text-rose-600 uppercase">Saídas</p><p className="text-lg font-bold text-rose-700 dark:text-rose-400">{formatter.format(totalExpense)}</p></div><TrendingDown className="text-rose-500" /></div>
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30 flex justify-between"><div><p className="text-xs font-bold text-blue-600 uppercase">Saldo</p><p className={`text-lg font-bold ${periodBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600'}`}>{formatter.format(periodBalance)}</p></div><Wallet className="text-blue-500" /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Card 1: Saldo Anterior */}
+          <div className="bg-gray-50 dark:bg-slate-700/30 p-4 rounded-xl border border-gray-200 dark:border-slate-600 flex justify-between items-center relative overflow-hidden">
+            <div className="z-10">
+              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Saldo Anterior</p>
+              <p className={`text-lg font-bold ${previousBalance >= 0 ? 'text-gray-700 dark:text-gray-200' : 'text-red-500'}`}>
+                {formatter.format(previousBalance)}
+              </p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Acumulado até {new Date(startDate).toLocaleDateString('pt-BR')}</p>
+            </div>
+            <CalendarClock className="text-gray-300 dark:text-slate-600 absolute -right-2 -bottom-2 z-0 opacity-50" size={48} />
+          </div>
+
+          {/* Card 2: Entradas (Período) */}
+          <div className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/20 dark:to-slate-800 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/30 flex justify-between items-center relative overflow-hidden">
+            <div className="z-10">
+              <p className="text-xs font-bold text-emerald-600 uppercase mb-1">Entradas</p>
+              <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatter.format(totalIncome)}</p>
+            </div>
+            <TrendingUp className="text-emerald-500 opacity-80" size={24} />
+          </div>
+
+          {/* Card 3: Saídas (Período) */}
+          <div className="bg-gradient-to-br from-rose-50 to-white dark:from-rose-900/20 dark:to-slate-800 p-4 rounded-xl border border-rose-100 dark:border-rose-800/30 flex justify-between items-center relative overflow-hidden">
+            <div className="z-10">
+              <p className="text-xs font-bold text-rose-600 uppercase mb-1">Saídas</p>
+              <p className="text-lg font-bold text-rose-700 dark:text-rose-400">{formatter.format(totalExpense)}</p>
+            </div>
+            <TrendingDown className="text-rose-500 opacity-80" size={24} />
+          </div>
+
+          {/* Card 4: Resultado do Período (NOVO) */}
+          <div className={`p-4 rounded-xl border flex justify-between items-center relative overflow-hidden bg-gradient-to-br ${periodBalance >= 0 ? 'from-indigo-50 to-white dark:from-indigo-900/20 dark:to-slate-800 border-indigo-100 dark:border-indigo-800/30' : 'from-orange-50 to-white dark:from-orange-900/20 dark:to-slate-800 border-orange-100 dark:border-orange-800/30'}`}>
+            <div className="z-10">
+              <p className={`text-xs font-bold uppercase mb-1 ${periodBalance >= 0 ? 'text-indigo-600' : 'text-orange-600'}`}>Resultado (Mês)</p>
+              <p className={`text-lg font-bold ${periodBalance >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                {formatter.format(periodBalance)}
+              </p>
+            </div>
+            {periodBalance >= 0 ? <Target className="text-indigo-500" size={24} /> : <AlertCircle className="text-orange-500" size={24} />}
+          </div>
+
+          {/* Card 5: Saldo Atual (Acumulado) */}
+          <div className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-900/20 dark:to-slate-800 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30 flex justify-between items-center shadow-sm relative overflow-hidden">
+            <div className="z-10">
+              <p className="text-xs font-bold text-blue-600 uppercase mb-1">Saldo Atual</p>
+              <p className={`text-xl font-bold ${currentBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-600'}`}>
+                {formatter.format(currentBalance)}
+              </p>
+              <p className="text-[10px] text-blue-600/60 dark:text-blue-400/60 mt-1">Saldo Final Acumulado</p>
+            </div>
+            <Wallet className="text-blue-500" size={28} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 transition-all">

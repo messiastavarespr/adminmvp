@@ -98,7 +98,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
           const defaultFund = funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
           setFundId(defaultFund?.id || ''); // Default to General/Unrestricted
 
-          setAccountId(accounts.length > 0 ? accounts[0].id : '');
+          const sicoobAccount = accounts.find(a => a.name.toLowerCase().includes('sicoob'));
+          setAccountId(sicoobAccount ? sicoobAccount.id : (accounts.length > 0 ? accounts[0].id : ''));
         }
 
         setToAccountId('');

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Transaction, TransactionType, ScheduledTransaction, UserRole, Category, Budget, Account, Fund, Member } from '../types';
+import { Transaction, TransactionType, ScheduledTransaction, UserRole, Category, Budget, Account, Fund, Member, Church } from '../types';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend, AreaChart, Area, ComposedChart, Line, ReferenceLine
@@ -178,15 +178,44 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
   }, [transactions, startDate, accountFilter]);
 
   // --- OPTIMIZATION: KPI Totals ---
-  const { income, expense, balance } = useMemo(() => {
-    return filteredTransactions.reduce((acc, t) => {
+  const { income, expense, previousBalance } = useMemo(() => {
+    // 1. Calculate Previous Balance (Accumulated before start date)
+    // Convert startDate to YYYY-MM-DD string in Local Time for comparison
+    const offset = startDate.getTimezoneOffset();
+    const localStart = new Date(startDate.getTime() - (offset * 60 * 1000));
+    const startDateStr = localStart.toISOString().split('T')[0];
+
+    const prevTrans = transactions.filter(t => {
+      // Must be BEFORE startDate
+      const isBefore = t.date.split('T')[0] < startDateStr;
+
+      // Must match Account Filter
+      const matchesAccount = accountFilter === 'ALL' ? true : t.accountId === accountFilter;
+
+      // Must NOT be a transfer (or handle transfers if they affect balance, which they do for specific accounts)
+      // Note: Transfers affect specific accounts but Net Worth (All Accounts) is neutral.
+      // If Account Filter is ALL, Income - Expense is enough (Transfers cancel out).
+      // If Account Filter is specific, we MUST include Transfer In/Out.
+
+      return isBefore && matchesAccount;
+    });
+
+    const prevIncome = prevTrans.filter(t => t.type === TransactionType.INCOME || (t.type === TransactionType.TRANSFER && t.transferDirection === 'IN')).reduce((acc, t) => acc + t.amount, 0);
+    const prevExpense = prevTrans.filter(t => t.type === TransactionType.EXPENSE || (t.type === TransactionType.TRANSFER && t.transferDirection === 'OUT')).reduce((acc, t) => acc + t.amount, 0);
+    const pBalance = prevIncome - prevExpense;
+
+    // 2. Calculate Period Totals (Income/Expense)
+    // Note: filteredTransactions ALREADY has the Date >= startDate and Account Filter applied.
+    const currentPeriodStats = filteredTransactions.reduce((acc, t) => {
       if (t.type === TransactionType.INCOME) acc.income += t.amount;
       if (t.type === TransactionType.EXPENSE) acc.expense += t.amount;
       return acc;
-    }, { income: 0, expense: 0 }) as any;
-  }, [filteredTransactions]);
+    }, { income: 0, expense: 0 });
 
-  const finalBalance = income - expense; // Simple period balance
+    return { income: currentPeriodStats.income, expense: currentPeriodStats.expense, previousBalance: pBalance };
+  }, [filteredTransactions, transactions, startDate, accountFilter]);
+
+  const finalBalance = previousBalance + (income - expense);
 
   // --- OPTIMIZATION: Evolution Data (Actual + Projected) ---
   const evolutionData = useMemo(() => {
@@ -601,7 +630,21 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
       </div>
 
       {/* KPI Cards Grid - IMPROVED COLORS */}
-      <div id="kpi-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div id="kpi-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-6">
+
+        {/* Saldo Anterior - Gray/Slate Gradient */}
+        <div className="bg-gray-50 dark:bg-slate-700/30 p-6 rounded-3xl border border-gray-200 dark:border-slate-600 flex flex-col justify-between relative overflow-hidden group hover:border-gray-300 dark:hover:border-slate-500 transition-all hover:-translate-y-1 duration-300">
+          <div className="z-10">
+            <div className="flex justify-between items-start mb-6">
+              <div className="p-3 bg-gray-200 dark:bg-slate-600 rounded-2xl text-gray-600 dark:text-gray-300 shadow-sm"><CalendarClock size={24} strokeWidth={2.5} /></div>
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1 ml-1">Saldo Anterior</p>
+            <p className={`text-xl font-extrabold tracking-tight ${previousBalance >= 0 ? 'text-gray-700 dark:text-gray-200' : 'text-red-500'}`}>
+              {formatValue(previousBalance)}
+            </p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 font-medium">Acumulado anterior</p>
+          </div>
+        </div>
 
         {/* Entradas - Emerald Green Gradient */}
         <div className="bg-gradient-to-br from-emerald-100/80 to-white dark:from-emerald-900/40 dark:to-slate-800 p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(16,185,129,0.1)] border border-emerald-200/50 dark:border-emerald-800/30 hover:shadow-lg hover:border-emerald-300 dark:hover:border-emerald-600 transition-all hover:-translate-y-1 duration-300 relative overflow-hidden group">
@@ -628,14 +671,28 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
           </div>
         </div>
 
-        {/* Saldo - Royal Blue Gradient */}
+        {/* Resultado (Mês) - Indigo/Orange depending on value */}
+        <div className={`p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(99,102,241,0.1)] border hover:shadow-lg transition-all hover:-translate-y-1 duration-300 relative overflow-hidden group bg-gradient-to-br ${income - expense >= 0 ? 'from-indigo-100/80 to-white dark:from-indigo-900/40 dark:to-slate-800 border-indigo-200/50 dark:border-indigo-800/30 hover:border-indigo-300' : 'from-orange-100/80 to-white dark:from-orange-900/40 dark:to-slate-800 border-orange-200/50 dark:border-orange-800/30 hover:border-orange-300'}`}>
+          <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110 bg-gradient-to-bl ${income - expense >= 0 ? 'from-indigo-100/60 to-transparent dark:from-indigo-500/10' : 'from-orange-100/60 to-transparent dark:from-orange-500/10'}`}></div>
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-6">
+              <div className={`p-3 rounded-2xl text-white shadow-lg ring-4 ${income - expense >= 0 ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/30 ring-indigo-50 dark:ring-indigo-900/20' : 'bg-gradient-to-br from-orange-500 to-orange-600 shadow-orange-500/30 ring-orange-50 dark:ring-orange-900/20'}`}>
+                {income - expense >= 0 ? <Target size={24} strokeWidth={2.5} /> : <AlertTriangle size={24} strokeWidth={2.5} />}
+              </div>
+            </div>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-1 ml-1 ${income - expense >= 0 ? 'text-indigo-800/70 dark:text-indigo-300/70' : 'text-orange-800/70 dark:text-orange-300/70'}`}>Resultado (Mês)</p>
+            <h3 className={`text-3xl font-extrabold tracking-tight ${income - expense >= 0 ? 'text-indigo-700 dark:text-indigo-400' : 'text-orange-600 dark:text-orange-400'}`}>{formatValue(income - expense)}</h3>
+          </div>
+        </div>
+
+        {/* Saldo Atual - Royal Blue Gradient */}
         <div className="bg-gradient-to-br from-blue-100/80 to-white dark:from-blue-900/40 dark:to-slate-800 p-6 rounded-3xl shadow-[0_4px_20px_-4px_rgba(59,130,246,0.1)] border border-blue-200/50 dark:border-blue-800/30 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all hover:-translate-y-1 duration-300 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-100/60 to-transparent dark:from-blue-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-6">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl text-white shadow-lg shadow-blue-500/30 ring-4 ring-blue-50 dark:ring-blue-900/20"><Wallet size={24} strokeWidth={2.5} /></div>
             </div>
-            <p className="text-blue-800/70 dark:text-blue-300/70 text-xs font-bold uppercase tracking-wider mb-1 ml-1">Saldo Líquido</p>
+            <p className="text-blue-800/70 dark:text-blue-300/70 text-xs font-bold uppercase tracking-wider mb-1 ml-1">Saldo Atual</p>
             <h3 className={`text-3xl font-extrabold tracking-tight ${finalBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatValue(finalBalance)}</h3>
           </div>
         </div>
