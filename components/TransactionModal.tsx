@@ -49,6 +49,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
 
+  // Attachments (Links)
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+
   useEffect(() => {
     if (isOpen) {
       setShowDuplicateWarning(false);
@@ -73,33 +77,35 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
       } else {
         // Create Mode (or Pre-fill Mode)
+        // SMART DEFAULTS LOGIC
+        const defaultAccount = accounts.find(a => a.name.toLowerCase().includes('sicoob')) || accounts[0];
+        const defaultCategory = categories.find(c => c.name.toLowerCase().includes('oferta de culto'));
+        const defaultCC = costCenters.find(c => c.name.toLowerCase().includes('geral') && c.name.toLowerCase().includes('sede'));
+        const defaultFund = funds.find(f => f.name.toLowerCase().includes('admin') && f.name.toLowerCase().includes('geral')) || funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
+
         if (initialData) {
           setType(initialData.type || initialType || TransactionType.INCOME);
           setDate(initialData.date ? initialData.date.split('T')[0].split(' ')[0] : getLocalDate());
           setAmount(initialData.amount ? initialData.amount.toString() : '');
           setDescription(initialData.description || '');
-          setCategoryId(initialData.categoryId || '');
-          setCostCenterId(initialData.costCenterId || '');
 
-          const defaultFund = funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
+          // Apply defaults if initialData is missing them
+          setCategoryId(initialData.categoryId || defaultCategory?.id || '');
+          setCostCenterId(initialData.costCenterId || defaultCC?.id || '');
           setFundId(initialData.fundId || defaultFund?.id || '');
-
-          setAccountId(initialData.accountId || (accounts.length > 0 ? accounts[0].id : ''));
+          setAccountId(initialData.accountId || defaultAccount?.id || '');
         } else {
+          // Completely New
           setType(initialType || TransactionType.INCOME);
           setDate(getLocalDate());
           setAmount('');
           setDescription('');
-          setCategoryId('');
 
-          const defaultCC = costCenters.find(c => c.name.toLowerCase().includes('sede') || c.name.toLowerCase().includes('geral / sede'));
-          setCostCenterId(defaultCC ? defaultCC.id : '');
-
-          const defaultFund = funds.find(f => f.type === 'UNRESTRICTED') || funds[0];
-          setFundId(defaultFund?.id || ''); // Default to General/Unrestricted
-
-          const sicoobAccount = accounts.find(a => a.name.toLowerCase().includes('sicoob'));
-          setAccountId(sicoobAccount ? sicoobAccount.id : (accounts.length > 0 ? accounts[0].id : ''));
+          // Apply Defaults
+          setCategoryId(defaultCategory?.id || '');
+          setCostCenterId(defaultCC?.id || '');
+          setFundId(defaultFund?.id || '');
+          setAccountId(defaultAccount?.id || '');
         }
 
         setToAccountId('');
@@ -107,8 +113,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         setAttachments([]);
       }
       setErrors({});
+      setAttachmentUrl('');
     }
-  }, [isOpen, initialType, accounts, editingTransaction, initialData, funds]);
+  }, [isOpen, initialType, accounts, editingTransaction, initialData, funds, categories, costCenters]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -151,20 +158,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     return isValid;
   };
 
-  // Attachments (Links)
-  const [attachments, setAttachments] = useState<string[]>([]);
-  const [attachmentUrl, setAttachmentUrl] = useState('');
-
-  useEffect(() => {
-    // ... (logic from before)
-    if (editingTransaction && editingTransaction.attachments) {
-      setAttachments(editingTransaction.attachments);
-    } else {
-      setAttachments([]);
-    }
-    setAttachmentUrl('');
-  }, [isOpen, editingTransaction]);
-
   const addAttachmentLink = () => {
     if (!attachmentUrl.trim()) return;
     if (attachments.length >= 5) { alert("Máximo de 5 links."); return; }
@@ -186,8 +179,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const proceedSave = async () => {
     try {
       // FIX: Append 12:00:00 to ensure we land in the middle of the day.
-      // This prevents timezone shifts (which are usually +/- 12h) from changing the calendar day
-      // when converting between Local and UTC.
       const dateWithTime = `${date} 12:00:00`;
 
       if (type === TransactionType.TRANSFER && onTransfer) {
@@ -287,7 +278,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 className={`w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 outline-none ${isEditing && currentUser?.role !== UserRole.MASTER ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
               {isEditing && currentUser?.role !== UserRole.MASTER && (
-                <p className="text-[10px] text-gray-500 mt-1">Apenas MASTER pode alterar a data de lançamentos antigos.</p>
+                <p className="text-[10px] text-gray-500 mt-1">Apenas MASTER pode alterar data.</p>
               )}
             </div>
           </div>
@@ -298,28 +289,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
             <ErrorMessage message={errors.description} />
           </div>
 
-          {/* New Fund Selector - Mandatory */}
-          <div className="bg-purple-50 dark:bg-purple-900/10 p-3 rounded-lg border border-purple-100 dark:border-purple-800/50">
-            <label className="block text-xs font-bold text-purple-700 dark:text-purple-300 mb-1 flex items-center gap-1">
-              <Target size={12} /> Fundo / Projeto Destino *
-              <Tooltip content="Recurso financeiro específico (ex: Missões, Construção) ou fundo geral da igreja.">
-                <HelpCircle size={14} className="text-gray-400 hover:text-blue-500 cursor-help" />
-              </Tooltip>
-            </label>
-            <select
-              value={fundId}
-              onChange={(e) => setFundId(e.target.value)}
-              className={`w-full rounded-lg border ${errors.fundId ? 'border-rose-500' : 'border-purple-200 dark:border-purple-700'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500`}
-            >
-              <option value="">Selecione o fundo...</option>
-              {funds.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.name} {f.type === 'RESTRICTED' ? '(Restrito)' : ''}
-                </option>
-              ))}
-            </select>
-            <ErrorMessage message={errors.fundId} />
-          </div>
+          {/* Account Moved Up */}
+          {type !== TransactionType.TRANSFER && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Conta/Banco *</label>
+              <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={`w-full rounded-lg border ${errors.accountId ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none`}>
+                <option value="">Selecione...</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+              <ErrorMessage message={errors.accountId} />
+            </div>
+          )}
 
           {type === TransactionType.TRANSFER ? (
             <div className="grid grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
@@ -354,9 +334,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
                     <Layers size={12} /> Centro de Custo
-                    <Tooltip content="Departamento ou área que gerou a despesa/receita (ex: Ministério Infantil, Louvor).">
-                      <HelpCircle size={14} className="text-gray-400 hover:text-blue-500 cursor-help" />
-                    </Tooltip>
                   </label>
                   <select value={costCenterId} onChange={(e) => setCostCenterId(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none">
                     <option value="">Geral</option>
@@ -365,13 +342,24 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </div>
               </div>
 
+              {/* Fund Selector - Restyled and Moved Down */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Conta/Banco *</label>
-                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={`w-full rounded-lg border ${errors.accountId ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none`}>
-                  <option value="">Selecione...</option>
-                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                  <Target size={12} /> Fundo / Projeto Destino *
+                </label>
+                <select
+                  value={fundId}
+                  onChange={(e) => setFundId(e.target.value)}
+                  className={`w-full rounded-lg border ${errors.fundId ? 'border-rose-500' : 'border-gray-300 dark:border-slate-600'} bg-white dark:bg-slate-700 text-gray-900 dark:text-white p-2 text-sm outline-none`}
+                >
+                  <option value="">Selecione o fundo...</option>
+                  {funds.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} {f.type === 'RESTRICTED' ? '(Restrito)' : ''}
+                    </option>
+                  ))}
                 </select>
-                <ErrorMessage message={errors.accountId} />
+                <ErrorMessage message={errors.fundId} />
               </div>
 
               <div>
