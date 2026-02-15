@@ -1,5 +1,14 @@
 
 import { GoogleGenAI } from "@google/genai";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configuração do Worker do PDF.js
+// Método mais robusto para Vite/Webpack: Importação dinâmica direta
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+// Define o worker globalmente
+// @ts-ignore
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const apiKey = import.meta.env.VITE_AISTUDIO_KEY;
 // Initialize lazily or check existence to avoid top-level crash
@@ -42,7 +51,30 @@ const fileToPart = (file: File): Promise<{ inlineData: { data: string; mimeType:
   });
 };
 
-// Fallback: Local Regex Parser for copied text
+// --- Local PDF Extraction ---
+const extractTextFromPDF = async (file: File): Promise<string> => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n';
+    }
+
+    return fullText;
+  } catch (error) {
+    console.error("Erro ao extrair texto do PDF localmente:", error);
+    throw new Error("Falha ao ler o arquivo PDF. Verifique se o arquivo é válido.");
+  }
+};
+
+// Fallback: Local Regex Parser for copied text or extracted PDF text
 const localParseOFX = (text: string): string => {
   const lines = text.split('\n');
   const nowStr = new Date().toISOString().replace(/[-:T\.]/g, '').slice(0, 14);
@@ -50,39 +82,67 @@ const localParseOFX = (text: string): string => {
 
   // Matches: Date (DD/MM/YYYY or DD/MM) + Space + Description + Space + Amount
   // Examples: "12/05/2024 Pix Enviado -120,50" or "12/05 Supermercado 50.00"
-  const regex = /(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.*?)\s+(-?[\d\.,]+)/;
+  // Improved Regex to handle more variations commonly found in PDF extractions
+  // Looks for Date, then arbitrary text, then a number at the end
+  const regex = /(\d{2}\/\d{2}(?:\/\d{2,4})?).*?([A-Za-z].*?)\s+(-?[\d\.,]+)/;
 
   lines.forEach(line => {
-    const match = line.match(regex);
-    if (match) {
-      let [_, dateStr, desc, amountStr] = match;
+    // Clean up line
+    const cleanLine = line.trim();
+    if (!cleanLine) return;
 
-      const parts = dateStr.split('/');
-      const year = parts.length > 2 ? (parts[2].length === 2 ? `20${parts[2]}` : parts[2]) : new Date().getFullYear().toString();
-      const dtPosted = `${year}${parts[1]}${parts[0]}120000`;
+    // Simple heuristic parser
+    // Try to find a date
+    const dateMatch = cleanLine.match(/(\d{2}\/\d{2}(?:\/\d{2,4})?)/);
+    if (!dateMatch) return;
 
-      let cleanAmount = amountStr;
-      // Heuristic: If comma exists and is after dot (1.000,00) or just comma (100,00) -> PT-BR
-      if (amountStr.includes(',')) cleanAmount = amountStr.replace(/\./g, '').replace(',', '.');
+    // Try to find an amount (last number in the line usually)
+    const amountMatch = cleanLine.match(/(-?[\d\.,]+)$/);
+    if (!amountMatch) return;
 
-      const amount = parseFloat(cleanAmount);
-      if (isNaN(amount)) return;
+    const dateStr = dateMatch[1];
+    const amountStr = amountMatch[1];
 
-      const type = amount < 0 ? 'DEBIT' : 'CREDIT';
+    // Description is everything else? This is risky but a good fallback attempt
+    // Let's use the explicit regex if possible, otherwise fallback to this split
+    let desc = cleanLine.replace(dateStr, '').replace(amountStr, '').trim();
 
-      transactions += `
+    // Validate numeric amount
+    // Clean amount string: remove dots (thousands), replace comma with dot (decimal) if PT-BR format detected
+    let cleanAmount = amountStr;
+    if (amountStr.includes(',') && amountStr.includes('.')) {
+      // 1.200,50 -> 1200.50
+      cleanAmount = amountStr.replace(/\./g, '').replace(',', '.');
+    } else if (amountStr.includes(',')) {
+      // 120,50 -> 120.50
+      cleanAmount = amountStr.replace(',', '.');
+    }
+
+    const amount = parseFloat(cleanAmount);
+    if (isNaN(amount)) return;
+
+
+    const parts = dateStr.split('/');
+    const year = parts.length > 2 ? (parts[2].length === 2 ? `20${parts[2]}` : parts[2]) : new Date().getFullYear().toString();
+    // Ensure month/day are 2 digits
+    const month = parts[1].padStart(2, '0');
+    const day = parts[0].padStart(2, '0');
+    const dtPosted = `${year}${month}${day}120000`;
+
+    const type = amount < 0 ? 'DEBIT' : 'CREDIT';
+
+    transactions += `
 <STMTTRN>
 <TRNTYPE>${type}
 <DTPOSTED>${dtPosted}
 <TRNAMT>${amount}
 <FITID>${dtPosted}${Math.floor(Math.random() * 100000)}
-<MEMO>${desc.trim()}
+<MEMO>${desc.trim() || 'Importado'}
 </STMTTRN>`;
-    }
   });
 
   if (!transactions) {
-    throw new Error("IA indisponível e falha na conversão manual. Verifique se o texto copiado está no formato 'Data Descrição Valor'.");
+    throw new Error("IA indisponível e falha na conversão manual. O formato do texto extraído não foi reconhecido.");
   }
 
   return `OFXHEADER:100
@@ -163,10 +223,32 @@ export const convertToOFX = async (input: string | File): Promise<string> => {
     console.warn("AI Conversion failed, attempting local fallback.", error);
   }
 
-  // 2. Local Fallback (Text Only)
-  if (typeof input === 'string') {
-    return localParseOFX(input);
-  }
+  // 2. Local Fallback (Text or PDF)
+  try {
+    let textToParse = '';
 
-  throw new Error("A API de IA falhou e não é possível converter arquivos PDF localmente. Por favor, COPIE O TEXTO do PDF e cole na caixa de entrada para usar o conversor manual.");
+    if (input instanceof File) {
+      if (input.type === 'application/pdf') {
+        // Extract text from PDF locally
+        console.log("Tentando extração local de PDF...");
+        textToParse = await extractTextFromPDF(input);
+        console.log("Texto extraído do PDF:", textToParse.substring(0, 100) + "...");
+      } else if (input.type === 'text/plain') {
+        textToParse = await input.text();
+      } else {
+        // Should simple text files be supported locally without FileReader?
+        // Usually 'input' as string covers the copy-paste case.
+        // If Input is a File but NOT pdf (e.g. .txt), we need to read it.
+        throw new Error("Formato de arquivo não suportado localmente (apenas PDF ou Texto copiado).");
+      }
+    } else {
+      textToParse = input;
+    }
+
+    return localParseOFX(textToParse);
+
+  } catch (localError: any) {
+    console.error("Local fallback failed:", localError);
+    throw new Error(`A API de IA falhou e a conversão local também não foi possível: ${localError.message}`);
+  }
 };
