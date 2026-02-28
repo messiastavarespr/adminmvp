@@ -29,6 +29,7 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
     const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
     const [matches, setMatches] = useState<ReconciliationMatch[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [addedTransactions, setAddedTransactions] = useState<Set<string>>(new Set());
 
     // Pending Data from Tools/OFXConverter (via Context in real app, but here local state simulated or prop)
     // We'll use the context one actually
@@ -129,10 +130,13 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         // Filtrar transações do sistema que AINDA NÃO foram conciliadas
         const openSystemTxns = data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId);
 
+        // Cópia mutável para removermos as transações já utilizadas
+        let availableSysTxns = [...openSystemTxns];
+
         bankTxns.forEach(bankTx => {
             // 1. Tentar Match Exato (Valor Igual + Data Igual)
             // Fix: Normalize dates to strings YYYY-MM-DD for comparison to ignore time
-            let match = openSystemTxns.find(sysTx => {
+            let matchIndex = availableSysTxns.findIndex(sysTx => {
                 const sysDate = sysTx.date.split('T')[0];
                 const bankDate = bankTx.date; // already YYYY-MM-DD from parser
 
@@ -142,13 +146,14 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                         (bankTx.type === 'DEBIT' && sysTx.type === TransactionType.EXPENSE));
             });
 
-            if (match) {
-                newMatches.push({ bankTx, sysTx: match, matchType: 'EXACT' });
+            if (matchIndex !== -1) {
+                newMatches.push({ bankTx, sysTx: availableSysTxns[matchIndex], matchType: 'EXACT' });
+                availableSysTxns.splice(matchIndex, 1);
                 return;
             }
 
             // 2. Tentar Match Provável (Valor Igual + Data Próxima +/- 3 dias)
-            match = openSystemTxns.find(sysTx => {
+            matchIndex = availableSysTxns.findIndex(sysTx => {
                 if (Math.abs(sysTx.amount - bankTx.amount) >= 0.01) return false;
 
                 // Verificar tipo
@@ -163,8 +168,9 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                 return diffDays <= 3; // Margem de 3 dias para compensação bancária
             });
 
-            if (match) {
-                newMatches.push({ bankTx, sysTx: match, matchType: 'PROBABLE' });
+            if (matchIndex !== -1) {
+                newMatches.push({ bankTx, sysTx: availableSysTxns[matchIndex], matchType: 'PROBABLE' });
+                availableSysTxns.splice(matchIndex, 1);
             } else {
                 newMatches.push({ bankTx, matchType: 'NONE' });
             }
@@ -248,12 +254,12 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         e.target.value = '';
     };
 
-    // --- 3. Ações ---
     const confirmMatch = async (match: ReconciliationMatch) => {
         if (match.sysTx) {
             try {
                 await updateTransaction({ ...match.sysTx, reconciled: true });
-                // Remove visualmente da lista
+                // Remove visualmente da lista e do processamento futuro
+                setBankTransactions(prev => prev.filter(t => t.id !== match.bankTx.id));
                 setMatches(prev => prev.filter(m => m.bankTx.id !== match.bankTx.id));
                 toast.success("Transação conciliada com sucesso.");
             } catch (e) {
@@ -286,9 +292,16 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         return data.categories[0]?.id || '';
     };
 
-    const createFromBank = async (bankTx: BankTransaction) => {
-        // Cria automaticamente usando categoria sugerida
-        const catId = getSuggestedCategory(bankTx);
+    const createFromBank = async (bankTx: BankTransaction, isOferta: boolean = false) => {
+        // Cria automaticamente usando categoria sugerida ou oferta
+        let catId = getSuggestedCategory(bankTx);
+
+        if (isOferta) {
+            const ofertaCategory = data.categories.find(c => c.name.toLowerCase().includes('oferta'));
+            if (ofertaCategory) {
+                catId = ofertaCategory.id;
+            }
+        }
 
         // Validation for Foreign Keys
         const accountId = data.accounts[0]?.id || '';
@@ -317,8 +330,20 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
 
         try {
             await addTransaction(newTx);
-            setMatches(prev => prev.filter(m => m.bankTx.id !== bankTx.id));
+
+            // Exibir feedback visual e aguardar antes de remover da tela
+            setAddedTransactions(prev => new Set(prev).add(bankTx.id));
             toast.success("Transação adicionada com sucesso.");
+
+            setTimeout(() => {
+                setBankTransactions(prev => prev.filter(t => t.id !== bankTx.id));
+                setMatches(prev => prev.filter(m => m.bankTx.id !== bankTx.id));
+                setAddedTransactions(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(bankTx.id);
+                    return newSet;
+                });
+            }, 1500);
         } catch (error) {
             console.error("Failed to add transaction:", error);
             toast.error("Erro ao salvar transação. Verifique o console.");
@@ -585,17 +610,26 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                                                         <div className="flex gap-2 w-full sm:w-auto">
                                                             {onManualAdd && (
                                                                 <button
-                                                                    onClick={() => onManualAdd(m.bankTx)}
-                                                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs bg-white border border-gray-200 hover:bg-gray-50 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg font-bold transition-colors whitespace-nowrap"
+                                                                    onClick={() => onManualAdd({ ...m.bankTx, isFromReconciliation: true } as any)}
+                                                                    disabled={addedTransactions.has(m.bankTx.id)}
+                                                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs bg-white border border-gray-200 hover:bg-gray-50 dark:bg-slate-700 dark:border-slate-600 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg font-bold transition-colors whitespace-nowrap disabled:opacity-50"
                                                                 >
                                                                     <Edit2 size={14} /> Manual
                                                                 </button>
                                                             )}
                                                             <button
-                                                                onClick={() => createFromBank(m.bankTx)}
-                                                                className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold transition-colors whitespace-nowrap shadow-sm"
+                                                                onClick={() => createFromBank(m.bankTx, true)}
+                                                                disabled={addedTransactions.has(m.bankTx.id)}
+                                                                className={`flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs px-3 py-2 rounded-lg font-bold border transition-colors whitespace-nowrap shadow-sm ${addedTransactions.has(m.bankTx.id) ? 'bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'bg-indigo-600 hover:bg-indigo-700 border-transparent text-white'}`}
                                                             >
-                                                                <Plus size={14} /> Adicionar
+                                                                {addedTransactions.has(m.bankTx.id) ? <><CheckCircle size={14} /> Adicionado</> : <><Plus size={14} /> Adicionar Oferta</>}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => createFromBank(m.bankTx)}
+                                                                disabled={addedTransactions.has(m.bankTx.id)}
+                                                                className={`flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs px-3 py-2 rounded-lg font-bold border transition-colors whitespace-nowrap shadow-sm ${addedTransactions.has(m.bankTx.id) ? 'bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'bg-blue-600 hover:bg-blue-700 border-transparent text-white'}`}
+                                                            >
+                                                                {addedTransactions.has(m.bankTx.id) ? <><CheckCircle size={14} /> Adicionado</> : <><Plus size={14} /> Adicionar</>}
                                                             </button>
                                                         </div>
                                                     </div>

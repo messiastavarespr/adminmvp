@@ -248,8 +248,9 @@ function AppContent() {
       date: bankTx.date,
       amount: bankTx.amount,
       description: bankTx.description,
-      type: bankTx.type === 'CREDIT' ? TransactionType.INCOME : TransactionType.EXPENSE
-    });
+      type: bankTx.type === 'CREDIT' ? TransactionType.INCOME : TransactionType.EXPENSE,
+      isFromReconciliation: (bankTx as any).isFromReconciliation
+    } as any);
     setTransModalOpen(true);
   };
 

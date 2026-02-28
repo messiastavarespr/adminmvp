@@ -212,7 +212,10 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     e.preventDefault();
     if (!validate()) return;
 
-    if (!editingTransaction && !showDuplicateWarning && type !== TransactionType.TRANSFER) {
+    // Safely check if we are coming from the reconciliation screen
+    const isFromReconciliation = initialData && 'isFromReconciliation' in initialData && (initialData as any).isFromReconciliation;
+
+    if (!editingTransaction && !showDuplicateWarning && type !== TransactionType.TRANSFER && !isFromReconciliation) {
       const isDuplicate = transactions.some(t => {
         if (t.amount !== parseFloat(amount)) return false;
         if (t.type !== type) return false;
