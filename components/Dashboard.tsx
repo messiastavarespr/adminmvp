@@ -181,7 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
   }, [transactions, startDate, accountFilter]);
 
   // --- OPTIMIZATION: KPI Totals ---
-  const { income, expense, previousBalance } = useMemo(() => {
+  const { income, expense, previousBalance, netTransfers } = useMemo(() => {
     // 1. Calculate Previous Balance (Accumulated before start date)
     // Convert startDate to YYYY-MM-DD string in Local Time for comparison
     const offset = startDate.getTimezoneOffset();
@@ -203,22 +203,54 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
       return isBefore && matchesAccount;
     });
 
+    // Global Initial Balance & Legacy Offset calculation
+    const globalInitialAndLegacy = accounts.reduce((acc, a) => {
+      const matchesAccount = accountFilter === 'ALL' ? true : a.id === accountFilter;
+      if (!matchesAccount) return acc;
+
+      let initial = 0;
+      if (!activeChurchId || activeChurchId === 'ALL') {
+        initial = a.initialBalance;
+      } else {
+        const activeChurch = churches.find(c => c.id === activeChurchId);
+        const isHidden = activeChurch?.settings?.hiddenAccounts?.includes(a.id);
+        if (isHidden) return acc; // Skip hidden accounts
+
+        const customInitial = activeChurch?.settings?.initialBalances?.[a.id];
+        if (customInitial !== undefined) {
+          initial = customInitial;
+        } else if (a.churchId === activeChurchId) {
+          initial = a.initialBalance;
+        }
+      }
+      return acc + initial + (a.legacyBalanceOffset || 0);
+    }, 0);
+
     const prevIncome = prevTrans.filter(t => t.type === TransactionType.INCOME || (t.type === TransactionType.TRANSFER && t.transferDirection === 'IN')).reduce((acc, t) => acc + t.amount, 0);
     const prevExpense = prevTrans.filter(t => t.type === TransactionType.EXPENSE || (t.type === TransactionType.TRANSFER && t.transferDirection === 'OUT')).reduce((acc, t) => acc + t.amount, 0);
-    const pBalance = prevIncome - prevExpense;
+    const pBalance = prevIncome - prevExpense + globalInitialAndLegacy;
 
     // 2. Calculate Period Totals (Income/Expense)
     // Note: filteredTransactions ALREADY has the Date >= startDate and Account Filter applied.
     const currentPeriodStats = filteredTransactions.reduce((acc, t) => {
       if (t.type === TransactionType.INCOME) acc.income += t.amount;
       if (t.type === TransactionType.EXPENSE) acc.expense += t.amount;
+      if (t.type === TransactionType.TRANSFER) {
+        if (t.transferDirection === 'IN') acc.netTransfers += t.amount;
+        if (t.transferDirection === 'OUT') acc.netTransfers -= t.amount;
+      }
       return acc;
-    }, { income: 0, expense: 0 });
+    }, { income: 0, expense: 0, netTransfers: 0 });
 
-    return { income: currentPeriodStats.income, expense: currentPeriodStats.expense, previousBalance: pBalance };
-  }, [filteredTransactions, transactions, startDate, accountFilter]);
+    return {
+      income: currentPeriodStats.income,
+      expense: currentPeriodStats.expense,
+      netTransfers: currentPeriodStats.netTransfers,
+      previousBalance: pBalance
+    };
+  }, [filteredTransactions, transactions, startDate, accountFilter, accounts, activeChurchId, churches]);
 
-  const finalBalance = previousBalance + (income - expense);
+  const finalBalance = previousBalance + (income - expense) + netTransfers;
 
   // --- OPTIMIZATION: Evolution Data (Actual + Projected) ---
   const evolutionData = useMemo(() => {
