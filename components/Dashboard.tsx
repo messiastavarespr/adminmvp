@@ -88,6 +88,8 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
             totalInitial += a.initialBalance;
           }
         });
+        // Add legacy offsets exactly once per overall account
+        totalInitial += (a.legacyBalanceOffset || 0);
         accBalances.set(a.id, totalInitial);
       } else {
         // Individual View
@@ -100,6 +102,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
         } else if (a.churchId === activeChurchId) {
           initial = a.initialBalance;
         }
+        initial += (a.legacyBalanceOffset || 0);
         accBalances.set(a.id, initial);
       }
     });

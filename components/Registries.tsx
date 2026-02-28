@@ -181,18 +181,23 @@ export default function Registries() {
             setNewCatAccCode(item.accountingCode || '');
         }
         if (activeTab === 'ACCOUNT') {
-            const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
+            const targetChurchId = activeChurchId === 'ALL' ? item.churchId || currentChurchId : activeChurchId;
             const targetChurch = data.churches.find(c => c.id === targetChurchId);
 
             // NEW: Load Initial Balance from current church settings or fallback
-            const customInitial = targetChurch?.settings?.initialBalances?.[item.id];
-            if (customInitial !== undefined) {
-                setEntityInitialBal(customInitial.toString());
-            } else if (item.churchId === targetChurchId) {
-                setEntityInitialBal(item.initialBalance?.toString() || '0');
+            let initialBal = '0';
+            if (activeChurchId === 'ALL') {
+                // If Master, always show the root initial balance of the account
+                initialBal = item.initialBalance?.toString() || '0';
             } else {
-                setEntityInitialBal('0');
+                const customInitial = targetChurch?.settings?.initialBalances?.[item.id];
+                if (customInitial !== undefined) {
+                    initialBal = customInitial.toString();
+                } else if (item.churchId === targetChurchId) {
+                    initialBal = item.initialBalance?.toString() || '0';
+                }
             }
+            setEntityInitialBal(initialBal);
 
             setNewAccAccCode(item.accountingCode || '');
 
@@ -330,12 +335,12 @@ export default function Registries() {
 
                 // Find existing account to check ownership
                 const existingAcc = entityId ? data.accounts.find(a => a.id === entityId) : null;
-                const isOwner = !existingAcc || existingAcc.churchId === currentChurchId;
+                const isOwner = activeChurchId === 'ALL' || !existingAcc || existingAcc.churchId === currentChurchId;
 
                 const acc: any = {
                     id: accId,
                     name: entityName,
-                    // If not owner, keep existing initial balance to avoid affecting other churches
+                    // Master updates root. Owner updates root. Others do not mutate root.
                     initialBalance: isOwner ? initialVal : (existingAcc?.initialBalance || 0),
                     churchId: existingAcc?.churchId || currentChurchId!,
                     accountingCode: newAccAccCode || '1.02',
@@ -344,29 +349,34 @@ export default function Registries() {
 
                 if (entityId) await updateAccount(acc); else await addAccount(acc);
 
-                // Update Church Preferences (Individual for each church)
-                const targetChurchId = activeChurchId === 'ALL' ? currentChurchId : activeChurchId;
-                const targetChurch = data.churches.find(c => c.id === targetChurchId);
-                if (targetChurch) {
-                    let hidden = [...(targetChurch.settings?.hiddenAccounts || [])];
-                    if (!entityShowOnDash) {
-                        if (!hidden.includes(accId)) hidden.push(accId);
-                    } else {
-                        hidden = hidden.filter(id => id !== accId);
-                    }
-
-                    // Save the Specific Initial Balance for THIS church
-                    const initialBalances = { ...(targetChurch.settings?.initialBalances || {}) };
-                    initialBalances[accId] = initialVal;
-
-                    await updateChurch({
-                        ...targetChurch,
-                        settings: {
-                            ...targetChurch.settings,
-                            hiddenAccounts: hidden,
-                            initialBalances: initialBalances
+                // Update Individual Church Settings if NOT Master
+                // Master editing root shouldn't necessarily override specific church settings, 
+                // but setting a custom balance from Master view could be confusing if we try to map it to a church.
+                // We'll only save to church settings if activeChurchId is a specific church.
+                if (activeChurchId !== 'ALL') {
+                    const targetChurchId = activeChurchId;
+                    const targetChurch = data.churches.find(c => c.id === targetChurchId);
+                    if (targetChurch) {
+                        let hidden = [...(targetChurch.settings?.hiddenAccounts || [])];
+                        if (!entityShowOnDash) {
+                            if (!hidden.includes(accId)) hidden.push(accId);
+                        } else {
+                            hidden = hidden.filter(id => id !== accId);
                         }
-                    });
+
+                        // Save the Specific Initial Balance for THIS church
+                        const initialBalances = { ...(targetChurch.settings?.initialBalances || {}) };
+                        initialBalances[accId] = initialVal;
+
+                        await updateChurch({
+                            ...targetChurch,
+                            settings: {
+                                ...targetChurch.settings,
+                                hiddenAccounts: hidden,
+                                initialBalances: initialBalances
+                            }
+                        });
+                    }
                 }
             } else if (activeTab === 'COST_CENTER') {
                 const cc: any = { id: entityId || genId(), name: entityName, churchId: currentChurchId! };
@@ -529,7 +539,41 @@ export default function Registries() {
 
                                         {activeTab === 'ACCOUNT' && (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <Input label="Saldo Inicial (R$)" type="number" step="0.01" value={entityInitialBal} onChange={e => setEntityInitialBal(e.target.value)} />
+                                                <div>
+                                                    <Input label="Saldo Base (R$)" type="number" step="0.01" value={entityInitialBal} onChange={e => setEntityInitialBal(e.target.value)} />
+                                                    {(() => {
+                                                        const acc = entities.find(e => e.id === entityId);
+                                                        const legacySum = acc?.legacyBalanceOffset || 0;
+
+                                                        // Calculate Recent Transactions (Dashboard Logic)
+                                                        let recentSum = 0;
+                                                        const accTxs = data.transactions.filter(t => t.accountId === entityId);
+                                                        accTxs.forEach(t => {
+                                                            if (t.type === 'INCOME') recentSum += t.amount;
+                                                            if (t.type === 'EXPENSE') recentSum -= t.amount;
+                                                            if (t.type === 'TRANSFER' && t.transferDirection === 'IN') recentSum += t.amount;
+                                                            if (t.type === 'TRANSFER' && t.transferDirection === 'OUT') recentSum -= t.amount;
+                                                        });
+
+                                                        const baseVal = parseFloat(entityInitialBal) || 0;
+                                                        const currentBalance = baseVal + legacySum + recentSum;
+
+                                                        return (
+                                                            <div className="text-[10px] text-gray-500 mt-1">
+                                                                <p>Este é o saldo base inicial da conta.</p>
+                                                                {(legacySum !== 0 || recentSum !== 0) && (
+                                                                    <div className="mt-1 pt-1 border-t border-gray-200 dark:border-slate-700">
+                                                                        {legacySum !== 0 && <p className="text-blue-600 dark:text-blue-400">+ Histórico antigo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(legacySum)}</p>}
+                                                                        {recentSum !== 0 && <p className="text-emerald-600 dark:text-emerald-400">+ Mov. Recentes: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(recentSum)}</p>}
+                                                                        <p className="text-gray-800 dark:text-white font-bold mt-0.5">
+                                                                            = Saldo no Dashboard: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBalance)}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
                                                 <div>
                                                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Conta Ativo Vinculada</label>
                                                     <select
@@ -747,7 +791,47 @@ export default function Registries() {
                                                         <div>
                                                             <h4 className="font-bold text-gray-800 dark:text-white">{item.name}</h4>
                                                             <div className="flex flex-wrap gap-2 text-xs text-gray-500 mt-0.5">
-                                                                {activeTab === 'ACCOUNT' && `Saldo Inicial: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.initialBalance)}`}
+                                                                {activeTab === 'ACCOUNT' && (() => {
+                                                                    let displayBal = item.initialBalance || 0;
+                                                                    if (activeChurchId !== 'ALL') {
+                                                                        const targetChurch = data.churches.find(c => c.id === activeChurchId);
+                                                                        const customBal = targetChurch?.settings?.initialBalances?.[item.id];
+                                                                        if (customBal !== undefined) displayBal = customBal;
+                                                                    }
+                                                                    const effectiveBal = displayBal + (item.legacyBalanceOffset || 0);
+
+                                                                    // Calculate Recent Transactions (Dashboard Logic)
+                                                                    let recentSum = 0;
+                                                                    const accTxs = data.transactions.filter(t => t.accountId === item.id);
+                                                                    accTxs.forEach(t => {
+                                                                        if (t.type === 'INCOME') recentSum += t.amount;
+                                                                        if (t.type === 'EXPENSE') recentSum -= t.amount;
+                                                                        if (t.type === 'TRANSFER' && t.transferDirection === 'IN') recentSum += t.amount;
+                                                                        if (t.type === 'TRANSFER' && t.transferDirection === 'OUT') recentSum -= t.amount;
+                                                                    });
+                                                                    const currentBalance = effectiveBal + recentSum;
+
+                                                                    return (
+                                                                        <span className="flex flex-col">
+                                                                            <span>Saldo Base: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(displayBal)}</span>
+                                                                            {item.legacyBalanceOffset ? (
+                                                                                <span className="text-blue-600 dark:text-blue-400 font-medium text-[10px]">
+                                                                                    + Histórico antigo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.legacyBalanceOffset)}
+                                                                                </span>
+                                                                            ) : null}
+                                                                            {recentSum !== 0 && (
+                                                                                <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
+                                                                                    + Mov. Recentes: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(recentSum)}
+                                                                                </span>
+                                                                            )}
+                                                                            {(item.legacyBalanceOffset || recentSum !== 0) && (
+                                                                                <span className="text-gray-800 dark:text-white font-bold mt-0.5">
+                                                                                    Saldo no Dashboard: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBalance)}
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                                 {activeTab === 'FUND' && (
                                                                     <>
                                                                         <span className={`px-1.5 py-0.5 rounded ${item.type === 'UNRESTRICTED' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>

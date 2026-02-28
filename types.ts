@@ -193,6 +193,7 @@ export interface Account {
   name: string;
   initialBalance: number;
   churchId: string;
+  legacyBalanceOffset?: number; // Offset calculated from transactions older than 1 year
   accountingCode?: string; // Link to AccountingAccount.code (usually an ASSET account)
   icon?: string;
   order?: number;

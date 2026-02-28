@@ -111,10 +111,10 @@ export const supabaseService = {
             }
         });
 
-        // Map Accounts and adjust Initial Balance
+        // Map Accounts and set legacy offset (do not mutate initialBalance directly)
         const mappedAccounts = mapToCamel<Account[]>(accounts || []).map((acc) => ({
             ...acc,
-            initialBalance: acc.initialBalance + (accountOffsets.get(acc.id) || 0)
+            legacyBalanceOffset: accountOffsets.get(acc.id) || 0
         }));
 
         return {
