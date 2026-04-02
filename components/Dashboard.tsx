@@ -174,7 +174,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
     return transactions.filter(t => {
       // String comparison is safer for YYYY-MM-DD dates to avoid timezone shifts
       // t.date is already YYYY-MM-DD from Supabase
-      const matchesDate = t.date >= startDateStr && t.type !== TransactionType.TRANSFER;
+      const matchesDate = t.date.substring(0, 10) >= startDateStr;
       const matchesAccount = accountFilter === 'ALL' ? true : t.accountId === accountFilter;
       return matchesDate && matchesAccount;
     });
@@ -190,7 +190,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, scheduled, categori
 
     const prevTrans = transactions.filter(t => {
       // Must be BEFORE startDate
-      const isBefore = t.date.split('T')[0] < startDateStr;
+      const isBefore = t.date.substring(0, 10) < startDateStr;
 
       // Must match Account Filter
       const matchesAccount = accountFilter === 'ALL' ? true : t.accountId === accountFilter;

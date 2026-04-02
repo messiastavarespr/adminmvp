@@ -416,31 +416,45 @@ export const supabaseService = {
         await supabase.from('transactions').insert([debit, credit]);
     },
 
-    processScheduledTransaction: async (scheduledId: string, accountId: string, paymentDate: string, user: User | null) => {
+    processScheduledTransaction: async (scheduledId: string, accountId: string, paymentDate: string, user: User | null, activeChurchId?: string) => {
         // 1. Fetch Scheduled Item
-        const { data: s } = await supabase.from('scheduled_transactions').select('*').eq('id', scheduledId).single();
-        if (!s) return;
+        const { data: s, error: fetchError } = await supabase.from('scheduled_transactions').select('*').eq('id', scheduledId).single();
+        if (fetchError || !s) {
+            console.error('Erro ao buscar agendamento:', fetchError);
+            return false;
+        }
 
-        const scheduledItem = mapToCamel(s) as ScheduledTransaction;
+        const scheduledItem = mapToCamel(s) as ScheduledTransaction & { memberOrSupplierId?: string, memberOrSupplierName?: string };
+
+        // Standardize date to YYYY-MM-DD 12:00:00 to match manual transactions
+        const normalizedDate = paymentDate.includes(' ') ? paymentDate : `${paymentDate} 12:00:00`;
 
         // 2. Create Transaction
-        const newTx: any = {
-            date: paymentDate,
+        const newTransaction: Partial<Transaction> = {
+            date: normalizedDate,
             amount: scheduledItem.amount,
-            description: scheduledItem.title,
-            category_id: scheduledItem.categoryId,
-            cost_center_id: scheduledItem.costCenterId,
-            fund_id: scheduledItem.fundId,
-            account_id: accountId,
+            description: `[Agendado] ${scheduledItem.title}`,
+            categoryId: scheduledItem.categoryId,
+            costCenterId: scheduledItem.costCenterId,
+            fundId: scheduledItem.fundId,
+            accountId: accountId,
             type: scheduledItem.type,
-            is_paid: true,
-            scheduled_id: scheduledItem.id,
-            church_id: scheduledItem.churchId,
+            isPaid: true,
+            scheduledId: scheduledItem.id,
+            churchId: activeChurchId || scheduledItem.churchId || user?.churchId || '',
             attachments: scheduledItem.documentUrl ? [scheduledItem.documentUrl] : [],
-            created_by: user?.name
+            createdBy: user?.id || undefined, // Use ID for consistency with RLS and manual transactions
+            memberOrSupplierId: scheduledItem.memberOrSupplierId,
+            memberOrSupplierName: scheduledItem.memberOrSupplierName,
         };
 
-        await supabase.from('transactions').insert([newTx]);
+        const payload = mapToSnake(newTransaction);
+
+        const { error: insertError } = await supabase.from('transactions').insert([payload]);
+        if (insertError) {
+            console.error('Erro ao inserir transação do agendamento:', insertError);
+            throw new Error(`Erro ao registrar no financeiro: ${insertError.message}`);
+        }
 
         // 3. Update Scheduled Item Recurrence
         let updates: any = {};
@@ -462,7 +476,7 @@ export const supabaseService = {
             }
 
             if (shouldContinue) {
-                const currentDue = new Date(scheduledItem.dueDate);
+                const currentDue = new Date(scheduledItem.dueDate + 'T12:00:00');
                 let nextDue = new Date(currentDue);
                 switch (scheduledItem.recurrence) {
                     case RecurrenceType.WEEKLY: nextDue.setDate(currentDue.getDate() + 7); break;

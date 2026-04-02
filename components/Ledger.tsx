@@ -53,7 +53,7 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
   const getFundName = (id?: string) => funds.find(f => f.id === id)?.name || '-';
 
   const filteredTransactions = transactions
-    .filter(t => t.date >= startDate && t.date <= endDate)
+    .filter(t => t.date.substring(0, 10) >= startDate && t.date.substring(0, 10) <= endDate)
     .filter(t => filterType === 'ALL' || t.type === filterType)
     .filter(t => filterAccount === 'ALL' || t.accountId === filterAccount)
     .filter(t => filterCategory === 'ALL' || t.categoryId === filterCategory)
@@ -76,39 +76,31 @@ const Ledger: React.FC<LedgerProps> = ({ transactions, categories, accounts, cos
   const periodBalance = totalIncome - totalExpense;
 
   const previousTransactions = transactions
-    .filter(t => t.date.split('T')[0] < startDate)
-    .filter(t => filterAccount === 'ALL' || t.accountId === filterAccount)
-    .filter(t => filterCategory === 'ALL' || t.categoryId === filterCategory)
-    .filter(t => filterCostCenter === 'ALL' || t.costCenterId === filterCostCenter)
-    .filter(t => filterFund === 'ALL' || t.fundId === filterFund);
+    .filter(t => t.date.substring(0, 10) < startDate)
+    .filter(t => filterAccount === 'ALL' || t.accountId === filterAccount);
 
   // Global Initial Balance & Legacy Offset calculation for Ledger
-  // We only add this if we aren't filtering by Fund/Category/CostCenter, 
-  // because initialBalance belongs to the Account, not specific categories.
-  let globalInitialAndLegacy = 0;
-  if (filterCategory === 'ALL' && filterCostCenter === 'ALL' && filterFund === 'ALL') {
-    globalInitialAndLegacy = accounts.reduce((acc, a) => {
-      const matchesAccount = filterAccount === 'ALL' ? true : a.id === filterAccount;
-      if (!matchesAccount) return acc;
+  const globalInitialAndLegacy = accounts.reduce((acc, a) => {
+    const matchesAccount = filterAccount === 'ALL' ? true : a.id === filterAccount;
+    if (!matchesAccount) return acc;
 
-      let initial = 0;
-      // Default to the church-specific initial balance if not MASTER
-      if (currentChurch?.id !== 'ALL') {
-        const isHidden = currentChurch?.settings?.hiddenAccounts?.includes(a.id);
-        if (isHidden) return acc;
+    let initial = 0;
+    // Default to the church-specific initial balance if not MASTER
+    if (currentChurch?.id !== 'ALL') {
+      const isHidden = currentChurch?.settings?.hiddenAccounts?.includes(a.id);
+      if (isHidden) return acc;
 
-        const customInitial = currentChurch?.settings?.initialBalances?.[a.id];
-        if (customInitial !== undefined) {
-          initial = customInitial;
-        } else if (a.churchId === currentChurch?.id) {
-          initial = a.initialBalance;
-        }
-      } else {
+      const customInitial = currentChurch?.settings?.initialBalances?.[a.id];
+      if (customInitial !== undefined) {
+        initial = customInitial;
+      } else if (a.churchId === currentChurch?.id) {
         initial = a.initialBalance;
       }
-      return acc + initial + (a.legacyBalanceOffset || 0);
-    }, 0);
-  }
+    } else {
+      initial = a.initialBalance;
+    }
+    return acc + initial + (a.legacyBalanceOffset || 0);
+  }, 0);
 
   const previousIncome = previousTransactions.filter(t => t.type === TransactionType.INCOME || (t.type === TransactionType.TRANSFER && t.transferDirection === 'IN')).reduce((acc, t) => acc + t.amount, 0);
   const previousExpense = previousTransactions.filter(t => t.type === TransactionType.EXPENSE || (t.type === TransactionType.TRANSFER && t.transferDirection === 'OUT')).reduce((acc, t) => acc + t.amount, 0);
