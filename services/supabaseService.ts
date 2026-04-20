@@ -393,7 +393,7 @@ export const supabaseService = {
             type: TransactionType.TRANSFER, // 'TRANSFER'
             transfer_direction: 'OUT',
             is_paid: true,
-            church_id: churchId,
+            church_id: (churchId && churchId !== 'ALL') ? churchId : (accounts?.find((a: any) => a.id === fromAccountId)?.church_id || churchId),
             related_transaction_id: id2,
             created_by: user?.name
         };
@@ -408,7 +408,7 @@ export const supabaseService = {
             type: TransactionType.TRANSFER, // 'TRANSFER'
             transfer_direction: 'IN',
             is_paid: true,
-            church_id: churchId,
+            church_id: (churchId && churchId !== 'ALL') ? churchId : (accounts?.find((a: any) => a.id === toAccountId)?.church_id || churchId),
             related_transaction_id: id1,
             created_by: user?.name
         };
@@ -441,9 +441,9 @@ export const supabaseService = {
             type: scheduledItem.type,
             isPaid: true,
             scheduledId: scheduledItem.id,
-            churchId: activeChurchId || scheduledItem.churchId || user?.churchId || '',
+            churchId: scheduledItem.churchId, // Important: Always use the church from the scheduled item
             attachments: scheduledItem.documentUrl ? [scheduledItem.documentUrl] : [],
-            createdBy: user?.id || undefined, // Use ID for consistency with RLS and manual transactions
+            createdBy: user?.name || undefined, // consistency with manual transactions
             memberOrSupplierId: scheduledItem.memberOrSupplierId,
             memberOrSupplierName: scheduledItem.memberOrSupplierName,
         };
