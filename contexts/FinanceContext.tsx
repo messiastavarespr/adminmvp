@@ -347,11 +347,19 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
 
   const processScheduled = async (id: string, accountId: string, date: string) => {
     try {
-      console.log('Iniciando processamento de agendamento:', { id, accountId, date, activeChurchId });
+      console.log('--- Processando Pagamento de Agendamento ---');
+      console.log('ID Agendamento:', id);
+      console.log('ID Conta:', accountId);
+      console.log('Data Pagamento:', date);
+      console.log('Igreja Ativa (Contexto):', activeChurchId);
+      console.log('Usuário Atual:', currentUser?.name);
+
       await supabaseService.processScheduledTransaction(id, accountId, date, currentUser, activeChurchId);
-      console.log('Agendamento processado com sucesso. Atualizando dados...');
+      
+      console.log('Sucesso: Transação inserida e agendamento atualizado.');
+      console.log('Sincronizando dados locais (refreshData)...');
       await refreshData();
-      console.log('Dados atualizados após agendamento.');
+      console.log('Dados sincronizados com sucesso.');
     } catch (error: any) {
       console.error('Erro ao processar agendamento:', error);
       alert(error.message || 'Erro ao processar o pagamento. Tente novamente.');

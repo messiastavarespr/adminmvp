@@ -417,14 +417,34 @@ export const supabaseService = {
     },
 
     processScheduledTransaction: async (scheduledId: string, accountId: string, paymentDate: string, user: User | null, activeChurchId?: string) => {
-        // 1. Fetch Scheduled Item
-        const { data: s, error: fetchError } = await supabase.from('scheduled_transactions').select('*').eq('id', scheduledId).single();
+        // 1. Fetch Scheduled Item and Account (for Church ID fallback)
+        const [
+            { data: s, error: fetchError },
+            { data: acc, error: accError }
+        ] = await Promise.all([
+            supabase.from('scheduled_transactions').select('*').eq('id', scheduledId).single(),
+            supabase.from('accounts').select('church_id').eq('id', accountId).single()
+        ]);
+
         if (fetchError || !s) {
             console.error('Erro ao buscar agendamento:', fetchError);
             return false;
         }
 
         const scheduledItem = mapToCamel(s) as ScheduledTransaction & { memberOrSupplierId?: string, memberOrSupplierName?: string };
+        const accountChurchId = acc?.church_id;
+
+        // Resolve Church ID: Prevent 'ALL' for financial transactions
+        let finalChurchId = activeChurchId;
+        if (!finalChurchId || finalChurchId === 'ALL') {
+            // Fallback to scheduled item church if valid
+            if (scheduledItem.churchId && scheduledItem.churchId !== 'ALL') {
+                finalChurchId = scheduledItem.churchId;
+            } else {
+                // Last resort: use account's church
+                finalChurchId = accountChurchId || defaultChurchId;
+            }
+        }
 
         // Standardize date to YYYY-MM-DD 12:00:00 to match manual transactions
         const normalizedDate = paymentDate.includes(' ') ? paymentDate : `${paymentDate} 12:00:00`;
@@ -441,9 +461,9 @@ export const supabaseService = {
             type: scheduledItem.type,
             isPaid: true,
             scheduledId: scheduledItem.id,
-            churchId: scheduledItem.churchId, // Important: Always use the church from the scheduled item
+            churchId: finalChurchId, // GUARANTEED NO 'ALL'
             attachments: scheduledItem.documentUrl ? [scheduledItem.documentUrl] : [],
-            createdBy: user?.name || undefined, // consistency with manual transactions
+            createdBy: user?.name || undefined,
             memberOrSupplierId: scheduledItem.memberOrSupplierId,
             memberOrSupplierName: scheduledItem.memberOrSupplierName,
         };
