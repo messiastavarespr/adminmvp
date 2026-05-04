@@ -18,11 +18,11 @@ interface FinanceContextProps {
   login: (user: User) => void;
   logout: () => void;
   setActiveChurch: (id: string) => void;
-  refreshData: () => void;
+  refreshData: () => Promise<void>;
 
   // CRUD Wrappers
-  addTransaction: (t: Transaction) => void;
-  updateTransaction: (t: Transaction) => void;
+  addTransaction: (t: Transaction) => Promise<void>;
+  updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => void;
 
   // Helpers
@@ -259,14 +259,17 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const refreshData = () => {
-    supabaseService.getData().then(fetchedData => {
+  const refreshData = async () => {
+    try {
+      const fetchedData = await supabaseService.getData();
       const storedTheme = localStorage.getItem('mvp_theme') as 'light' | 'dark';
       if (storedTheme) {
         fetchedData.theme = storedTheme;
       }
       setData(fetchedData);
-    }).catch(console.error);
+    } catch (error) {
+      console.error('Erro ao recarregar dados:', error);
+    }
   };
 
   const login = (user: User) => {
@@ -299,22 +302,31 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const addTransaction = async (t: Transaction) => {
-    // Inject Current User Name
     if (currentUser && !t.createdBy) {
       t.createdBy = currentUser.name;
     }
-    await supabaseService.addTransaction(t);
-    refreshData();
+    try {
+      await supabaseService.addTransaction(t);
+      await refreshData();
+    } catch (error: any) {
+      console.error('[FinanceContext] Erro ao salvar transação:', error);
+      throw error;
+    }
   };
 
   const updateTransaction = async (t: Transaction) => {
-    await supabaseService.updateTransaction(t);
-    refreshData();
+    try {
+      await supabaseService.updateTransaction(t);
+      await refreshData();
+    } catch (error: any) {
+      console.error('[FinanceContext] Erro ao atualizar transação:', error);
+      throw error;
+    }
   };
 
   const deleteTransaction = async (id: string) => {
     await supabaseService.deleteTransaction(id);
-    refreshData();
+    await refreshData();
   };
 
   const addCategory = async (c: Category) => {

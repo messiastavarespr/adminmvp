@@ -171,14 +171,13 @@ function AppContent() {
   // --------------------------
 
   // Data Filtering Logic
+  const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
   const isHeadquartersUser = currentUser?.role === UserRole.MASTER || (currentUser && data.churches.find(c => c.id === currentUser.churchId)?.type === 'HEADQUARTERS');
-  const targetChurchId = activeChurchId === 'ALL' ? (currentUser?.churchId || '') : activeChurchId;
 
   const filteredTransactions = data.transactions.filter(t => activeChurchId === 'ALL' ? true : t.churchId === activeChurchId);
   const filteredScheduled = data.scheduled.filter(s => activeChurchId === 'ALL' ? true : s.churchId === activeChurchId);
 
   // Categories Sharing: Show active church categories OR Headquarters categories
-  const hqId = data.churches.find(c => c.type === 'HEADQUARTERS')?.id;
   const filteredCategories = data.categories.filter(c =>
     activeChurchId === 'ALL' ? true : (c.churchId === activeChurchId || c.churchId === hqId)
   );
@@ -202,22 +201,43 @@ function AppContent() {
     users: data.users.filter(u => activeChurchId === 'ALL' ? true : u.churchId === activeChurchId)
   };
 
+  // Resolução do churchId para persistência:
+  // - Se o filtro ativo é uma igreja específica, usa ela.
+  // - Se é 'ALL' (MASTER vendo tudo), usa o churchId do usuário — MAS se ele for 'ALL' também
+  //   (usuário MASTER sem sede definida), usa o hqId como fallback real.
+  const resolvedUserChurchId = currentUser?.churchId === 'ALL' ? hqId : currentUser?.churchId;
+  const targetChurchId = activeChurchId === 'ALL'
+    ? (resolvedUserChurchId || hqId || '')
+    : activeChurchId;
+
   const {
     addScheduled, updateScheduled, deleteScheduled, processScheduled,
     addTransfer: addTransferCtx
   } = useFinance();
 
-  const handleSaveTransaction = (transactionData: Omit<Transaction, 'id' | 'churchId'> & { id?: string }) => {
-    if (transactionData.id) {
-      const updatedTransaction: Transaction = { ...transactionData, id: transactionData.id, churchId: targetChurchId } as Transaction;
-      updateTransaction(updatedTransaction);
-    } else {
-      const newTransaction: Transaction = { ...transactionData, id: transactionData.id || generateId(), churchId: targetChurchId } as Transaction;
-      addTransaction(newTransaction);
+  const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'churchId'> & { id?: string }) => {
+    // Segurança: impede salvar sem um UUID válido
+    if (!targetChurchId || targetChurchId === 'ALL') {
+      alert('Erro: não foi possível determinar a Igreja para este lançamento.\nPor favor, selecione uma Igreja específica no filtro e tente novamente.');
+      return;
+    }
+
+    try {
+      if (transactionData.id) {
+        const updatedTransaction: Transaction = { ...transactionData, id: transactionData.id, churchId: targetChurchId } as Transaction;
+        await updateTransaction(updatedTransaction);
+      } else {
+        const newTransaction: Transaction = { ...transactionData, id: generateId(), churchId: targetChurchId } as Transaction;
+        await addTransaction(newTransaction);
+      }
+    } catch (error: any) {
+      const msg = error?.message || 'Erro desconhecido';
+      alert(`Erro ao salvar o lançamento:\n${msg}\n\nVerifique o console (F12) para mais detalhes.`);
     }
     setEditingTransaction(null);
     setPreFillTransaction(null);
   };
+
 
   const handleTransfer = (amount: number, fromId: string, toId: string, fundId: string, date: string, desc: string) => {
     addTransferCtx(amount, fromId, toId, fundId, date, desc);
@@ -438,6 +458,7 @@ function AppContent() {
         initialType={modalInitialType} editingTransaction={editingTransaction} initialData={preFillTransaction}
         transactions={filteredAppData.transactions}
         currentUser={currentUser}
+        currentChurchId={targetChurchId}
       />
       <ScheduleModal
         isOpen={isScheduleModalOpen}

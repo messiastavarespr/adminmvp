@@ -165,12 +165,11 @@ export const supabaseService = {
     // --- Transactions ---
     addTransaction: async (t: Transaction) => {
         const { id, ...payload } = mapToSnake(t);
-        // Ensure created_by is passed explicitly if mapToSnake doesn't handle it (it should if it's dynamic, but let's be safe or rely on mapToSnake)
-        // mapToSnake is dynamic: const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        // createdBy -> created_by. So it should work automatically if t has createdBy.
-        // However, I need to make sure 't' passed here actually HAS createdBy.
         const { error } = await supabase.from('transactions').insert([{ id, ...payload }]);
-        if (error) throw error;
+        if (error) {
+            console.error('[supabaseService] Erro ao inserir transação:', error.message, error.code);
+            throw new Error(`Erro ao salvar: ${error.message}`);
+        }
     },
 
     updateTransaction: async (t: Transaction) => {
