@@ -22,6 +22,7 @@ interface FinanceContextProps {
 
   // CRUD Wrappers
   addTransaction: (t: Transaction) => Promise<void>;
+  addTransactions: (ts: Transaction[]) => Promise<void>;
   updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => void;
 
@@ -314,6 +315,21 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  const addTransactions = async (ts: Transaction[]) => {
+    const tsWithCreatedBy = ts.map(t => ({
+      ...t,
+      createdBy: (currentUser && !t.createdBy) ? currentUser.name : t.createdBy
+    }));
+    
+    try {
+      await supabaseService.addTransactions(tsWithCreatedBy);
+      await refreshData();
+    } catch (error: any) {
+      console.error('[FinanceContext] Erro ao salvar transações em lote:', error);
+      throw error;
+    }
+  };
+
   const updateTransaction = async (t: Transaction) => {
     try {
       await supabaseService.updateTransaction(t);
@@ -450,6 +466,7 @@ export const FinanceProvider = ({ children }: { children?: ReactNode }) => {
       },
       refreshData,
       addTransaction,
+      addTransactions,
       updateTransaction,
       deleteTransaction,
       hashPassword,

@@ -21,7 +21,7 @@ interface ReconciliationMatch {
 }
 
 const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void }> = ({ onManualAdd }) => {
-    const { data, addTransaction, updateTransaction, activeChurchId, isLoading } = useFinance();
+    const { data, currentUser, addTransaction, addTransactions, updateTransaction, activeChurchId, isLoading } = useFinance();
     const { toast } = useToast();
 
     if (isLoading) return <div className="p-8 text-center text-gray-500">Carregando dados...</div>;
@@ -30,6 +30,8 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
     const [matches, setMatches] = useState<ReconciliationMatch[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [addedTransactions, setAddedTransactions] = useState<Set<string>>(new Set());
+    const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+    const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
 
     // Pending Data from Tools/OFXConverter (via Context in real app, but here local state simulated or prop)
     // We'll use the context one actually
@@ -127,8 +129,12 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
     const runMatchingAlgorithm = (bankTxns: BankTransaction[]) => {
         const newMatches: ReconciliationMatch[] = [];
 
-        // Filtrar transações do sistema que AINDA NÃO foram conciliadas
-        const openSystemTxns = data.transactions.filter(t => !t.reconciled && t.churchId === activeChurchId);
+        // Filtrar transações do sistema que AINDA NÃO foram conciliadas e pertencem à conta selecionada
+        const openSystemTxns = data.transactions.filter(t => 
+            !t.reconciled && 
+            (activeChurchId === 'ALL' || t.churchId === activeChurchId) && 
+            (selectedAccountId === 'ALL' || !selectedAccountId || t.accountId === selectedAccountId)
+        );
 
         // Cópia mutável para removermos as transações já utilizadas
         let availableSysTxns = [...openSystemTxns];
@@ -187,6 +193,17 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                 if (parsed.length > 0) {
                     setBankTransactions(parsed);
                     runMatchingAlgorithm(parsed);
+                    
+                    // Force select Sicoob if it exists when coming from tools
+                    const sicoob = data.accounts.find(a => 
+                        a.name.toLowerCase().includes('sicoob') || 
+                        a.name.toLowerCase().includes('sicob') ||
+                        a.name.toLowerCase().includes('siccoob')
+                    );
+                    if (sicoob) {
+                        setSelectedAccountId(sicoob.id);
+                    }
+
                     toast.success(`Importação automática via Ferramenta OFX: ${parsed.length} itens.`);
                 } else {
                     setError("O conteúdo OFX enviado parece vazio ou inválido.");
@@ -199,7 +216,7 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                 setPendingImportData(null);
             }
         }
-    }, [pendingImportData]);
+    }, [pendingImportData, data.accounts]);
 
     // Added Logic: Re-run matching when system transactions update (e.g. after adding a new one)
     // AND when activeChurchId changes (e.g. after session restore)
@@ -208,7 +225,27 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
             console.log("Running matching with Church ID:", activeChurchId);
             runMatchingAlgorithm(bankTransactions);
         }
-    }, [data.transactions, activeChurchId]);
+    }, [data.transactions, activeChurchId, selectedAccountId]);
+
+    // --- EFFECT: Auto-select Sicoob or First Account ---
+    useEffect(() => {
+        if (data.accounts.length > 0) {
+            const sicoob = data.accounts.find(a => 
+                a.name.toLowerCase().includes('sicoob') || 
+                a.name.toLowerCase().includes('sicob') ||
+                a.name.toLowerCase().includes('siccoob') ||
+                a.name.toLowerCase().includes('cooperativo')
+            );
+            
+            // Se encontrarmos Sicoob e ele ainda não estiver selecionado, selecionamos ele.
+            // Se não houver seleção nenhuma, pegamos a primeira conta.
+            if (sicoob && selectedAccountId !== sicoob.id) {
+                setSelectedAccountId(sicoob.id);
+            } else if (!selectedAccountId) {
+                setSelectedAccountId(data.accounts[0].id);
+            }
+        }
+    }, [data.accounts, selectedAccountId]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -272,23 +309,45 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
 
     // --- Smart Category Detection ---
     const getSuggestedCategory = (bankTx: BankTransaction): string => {
-        // 1. First, try to find a category that matches keywords in description
+        const desc = bankTx.description.toUpperCase();
         const targetType = bankTx.type === 'CREDIT' ? TransactionType.INCOME : TransactionType.EXPENSE;
         const compatibleCategories = data.categories.filter(c => c.type === targetType);
 
-        // Simple Keyword Matcher: Check if Category Name is inside Description (case insensitive)
+        // 1. Tenta encontrar por palavras-chave explícitas na descrição
+        if (bankTx.type === 'CREDIT') {
+            // Se for entrada e tiver PIX ou TRANSFERENCIA, sugere Oferta/Dízimo
+            if (desc.includes('PIX') || desc.includes('TRANSF') || desc.includes('DEPOSITO') || desc.includes('DOC ') || desc.includes('TED ')) {
+                const oferta = compatibleCategories.find(c => 
+                    c.name.toUpperCase().includes('OFERTA') || 
+                    c.name.toUpperCase().includes('DIZIMO') ||
+                    c.name.toUpperCase().includes('DOACAO') ||
+                    c.name.toUpperCase().includes('ENTRADA')
+                );
+                if (oferta) return oferta.id;
+            }
+        } else {
+            // Se for saída e tiver PIX ou PAGAMENTO
+            if (desc.includes('PIX') || desc.includes('PAGTO') || desc.includes('PGTO') || desc.includes('BOLETO') || desc.includes('TAR ') || desc.includes('MANUT')) {
+                const despesa = compatibleCategories.find(c => 
+                    c.name.toUpperCase().includes('DESPESA') || 
+                    c.name.toUpperCase().includes('TARIFA') ||
+                    c.name.toUpperCase().includes('OUTRAS')
+                );
+                if (despesa) return despesa.id;
+            }
+        }
+
+        // 2. Match exato pelo nome da categoria dentro da descrição
         const exactNameMatch = compatibleCategories.find(c =>
-            bankTx.description.toUpperCase().includes(c.name.toUpperCase())
+            desc.includes(c.name.toUpperCase())
         );
 
         if (exactNameMatch) return exactNameMatch.id;
 
-        // 2. Fallback to default logic (first of type)
-        // CHECK IF CATEGORIES EXIST TO AVOID CRASH
-        const firstByType = compatibleCategories[0];
-        if (firstByType) return firstByType.id;
+        // 3. Fallback para a primeira categoria do tipo
+        if (compatibleCategories.length > 0) return compatibleCategories[0].id;
 
-        // Final fallback: any category or empty string if absolutely nothing exists
+        // Final fallback: Qualquer categoria disponível
         return data.categories[0]?.id || '';
     };
 
@@ -304,7 +363,7 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         }
 
         // Validation for Foreign Keys
-        const accountId = data.accounts[0]?.id || '';
+        const accountId = selectedAccountId || data.accounts[0]?.id || '';
         const fundId = data.funds[0]?.id || '';
         const churchId = activeChurchId || (data.churches[0]?.id || '');
 
@@ -352,10 +411,13 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
 
     // --- 4. Bulk Actions ---
     const handleBulkConciliate = () => {
-        const exactMatches = matches.filter(m => m.matchType === 'EXACT');
+        const exactMatches = filteredMatches.filter(m => m.matchType === 'EXACT');
         if (exactMatches.length === 0) return;
 
-        if (!confirm(`Confirma a conciliação automática de ${exactMatches.length} itens exatos?`)) return;
+        const monthName = selectedMonth === 'ALL' ? 'todos os meses' : 
+            new Date(selectedMonth + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+        if (!confirm(`Confirma a conciliação automática de ${exactMatches.length} itens exatos de ${monthName}?`)) return;
 
         exactMatches.forEach(m => {
             if (m.sysTx) {
@@ -368,29 +430,65 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
         toast.success(`${exactMatches.length} itens conciliados.`);
     };
 
-    const handleBulkAdd = async () => {
-        const newItems = matches.filter(m => m.matchType === 'NONE');
-        if (newItems.length === 0) return;
+    const handleBulkAdd = async (forceAll = false) => {
+        const itemsToProcess = forceAll 
+            ? filteredMatches 
+            : filteredMatches.filter(m => m.matchType === 'NONE');
 
-        if (!confirm(`Deseja adicionar ${newItems.length} novos lançamentos ao Livro Caixa? Eles serão categorizados automaticamente.`)) return;
+        if (itemsToProcess.length === 0) {
+            toast.error(forceAll 
+                ? "Não há lançamentos para processar nesta visualização." 
+                : "Não há novos lançamentos para adicionar nesta visualização.");
+            return;
+        }
 
-        // Validation keys
-        const accountId = data.accounts[0]?.id || '';
-        const fundId = data.funds[0]?.id || '';
-        const churchId = activeChurchId || (data.churches[0]?.id || '');
+        const monthName = selectedMonth === 'ALL' ? 'todos os meses' : 
+            new Date(selectedMonth + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
-        if (!accountId) { toast.error("Crie uma CONTA antes de operacão em massa."); return; }
-        if (!fundId) { toast.error("Crie um FUNDO antes de operacão em massa."); return; }
-        if (!churchId) { toast.error("Sem IGREJA selecionada."); return; }
-        if (data.categories.length === 0) { toast.error("Crie pelo menos uma CATEGORIA antes de importar."); return; }
+        const confirmMsg = forceAll
+            ? `ATENÇÃO: Você está prestes a importar TODOS os ${itemsToProcess.length} itens de ${monthName}, ignorando possíveis correspondências já existentes. Isso pode gerar duplicidades no Livro Caixa. Deseja continuar?`
+            : `Deseja adicionar ${itemsToProcess.length} novos lançamentos de ${monthName} ao Livro Caixa? Eles serão categorizados automaticamente.`;
 
-        let successCount = 0;
+        if (!confirm(confirmMsg)) return;
 
-        // Iterate sequentially to avoid flooding if logic is complex, or parallel
-        for (const m of newItems) {
+        // Fallback Church & Account (Nunca usar 'ALL' para inserir)
+        const sicoob = data.accounts.find(a => 
+            a.name.toLowerCase().includes('sicoob') || 
+            a.name.toLowerCase().includes('siccoob') ||
+            a.name.toLowerCase().includes('sicob')
+        );
+
+        const targetAccount = (selectedAccountId !== 'ALL' && selectedAccountId) 
+            ? data.accounts.find(a => a.id === selectedAccountId) 
+            : sicoob || data.accounts[0];
+
+        const accountId = targetAccount?.id || '';
+        const targetChurchId = targetAccount?.churchId || 
+                             (activeChurchId !== 'ALL' ? activeChurchId : 
+                             (currentUser?.churchId !== 'ALL' ? currentUser?.churchId : data.churches[0]?.id));
+
+        if (!targetChurchId || !accountId) {
+            toast.error(`Não foi possível determinar a IGREJA (${targetChurchId || '?'}) ou CONTA (${accountId || '?'}) para importação.`);
+            console.error("[Conciliação] Falha ao resolver IDs críticos:", { targetChurchId, accountId, activeChurchId, currentUserChurchId: currentUser?.churchId });
+            return;
+        }
+
+        if (data.categories.length === 0) {
+            toast.error("Crie pelo menos uma CATEGORIA antes de importar.");
+            return;
+        }
+
+        // Criar o array completo de transações a serem inseridas
+        const allNewTransactions: Transaction[] = [];
+        const processedBankTxIds: string[] = [];
+        let skippedCount = 0;
+
+        for (const m of itemsToProcess) {
             const bankTx = m.bankTx;
             const catId = getSuggestedCategory(bankTx);
-            if (!catId) continue; // Skip if no categories
+            
+            // Garantir que temos um fundo padrão (systemDefault ou o primeiro disponível)
+            const defaultFundId = data.funds.find(f => f.isSystemDefault)?.id || data.funds[0]?.id || '';
 
             const newTx: Transaction = {
                 id: genId(),
@@ -399,39 +497,95 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                 description: bankTx.description,
                 type: bankTx.type === 'CREDIT' ? TransactionType.INCOME : TransactionType.EXPENSE,
                 accountId,
-                categoryId: catId,
-                fundId,
-                churchId,
+                categoryId: catId || data.categories[0]?.id || '',
+                fundId: defaultFundId,
+                churchId: targetChurchId,
+                createdBy: currentUser?.name || 'Sistema (Conciliação)',
                 isPaid: true,
                 attachments: [],
                 reconciled: true
             };
+            
+            allNewTransactions.push(newTx);
+            processedBankTxIds.push(bankTx.id);
+        }
 
-            try {
-                await addTransaction(newTx);
-                successCount++;
-            } catch (e) {
-                console.error("Error bulk adding tx", e);
+        if (allNewTransactions.length === 0) {
+            toast.error("Nenhum item válido para processar.");
+            return;
+        }
+
+        // --- Início do Processamento em Lotes (Chunking) ---
+        const CHUNK_SIZE = 50;
+        const totalChunks = Math.ceil(allNewTransactions.length / CHUNK_SIZE);
+        let successCount = 0;
+        let failCount = 0;
+
+        console.log(`[Conciliação] Iniciando importação de ${allNewTransactions.length} itens em ${totalChunks} lotes.`);
+        toast.info(`Iniciando importação de ${allNewTransactions.length} registros...`);
+
+        try {
+            for (let i = 0; i < allNewTransactions.length; i += CHUNK_SIZE) {
+                const chunk = allNewTransactions.slice(i, i + CHUNK_SIZE);
+                const chunkIndex = Math.floor(i / CHUNK_SIZE) + 1;
+
+                console.log(`[Conciliação] Processando lote ${chunkIndex}/${totalChunks} (${chunk.length} itens)...`);
+                
+                try {
+                    await addTransactions(chunk);
+                    successCount += chunk.length;
+                    
+                    // Pequeno delay para não sobrecarregar a conexão/API
+                    if (totalChunks > 1) {
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                } catch (chunkError: any) {
+                    console.error(`[Conciliação] Erro no lote ${chunkIndex}:`, chunkError);
+                    failCount += chunk.length;
+                    // Continuamos para o próximo lote para tentar salvar o que for possível
+                }
             }
-        }
 
-        if (successCount > 0) {
-            setMatches(prev => prev.filter(m => m.matchType !== 'NONE')); // This logic clears ALL. Should ideally filter by ID of successful ones if partial failure.
-            // For simplicity in MVP, we refresh list or assume success, but better to fetch fresh.
-            // Actually, since we didn't track individual success in UI state locally, clearing all might hide failures.
-            // Let's refine: re-run matching?
-            // Easier: refreshData() handles the DB, here we reset matches manually?
-            // The simplest: refresh UI state.
-            // However, let's keep the optimistic clear if mostly successful, or just reload page?
-            // The matching algorithm runs on `bankTransactions` vs `data.transactions`.
-            // After `addTransaction`, `data.transactions` is updated via `refreshData`.
-            // So `runMatchingAlgorithm` should be re-run?
-            // `data` changes -> FinanceContext triggers re-render? No, `data` is context value.
-            // If `refreshData` updates `data`, this component re-renders.
-            // We need a way to trigger matching again when data updates.
+            // Atualização da UI
+            const finalProcessedIds = processedBankTxIds.slice(0, successCount);
+            setBankTransactions(prev => prev.filter(t => !finalProcessedIds.includes(t.id)));
+            setMatches(prev => prev.filter(m => !finalProcessedIds.includes(m.bankTx.id)));
+
+            if (failCount === 0) {
+                toast.success(`${successCount} transações importadas com sucesso para ${targetAccount?.name}.`);
+            } else if (successCount > 0) {
+                toast.warning(`${successCount} importadas, mas ${failCount} falharam. Verifique o console.`);
+            } else {
+                toast.error("Falha total na importação dos lotes. Verifique o console.");
+            }
+
+            console.log(`[Conciliação] Importação finalizada. Sucesso: ${successCount}, Falha: ${failCount}.`);
+
+        } catch (globalError: any) {
+            console.error("[Conciliação] Erro crítico no loop de importação:", globalError);
+            toast.error("Ocorreu um erro inesperado durante a importação em massa.");
         }
-        toast.success(`${successCount} novos itens adicionados.`);
     };
+
+
+    // --- Helpers de Filtragem e Meses ---
+    const getAvailableMonths = () => {
+        const months = new Set<string>();
+        bankTransactions.forEach(tx => {
+            const date = tx.date.substring(0, 7); // YYYY-MM
+            months.add(date);
+        });
+        return Array.from(months).sort().reverse();
+    };
+
+    const filteredMatches = matches.filter(m => {
+        if (selectedMonth === 'ALL') return true;
+        return m.bankTx.date.startsWith(selectedMonth);
+    });
+
+    // Contadores baseados no filtro
+    const filteredExactCount = filteredMatches.filter(m => m.matchType === 'EXACT').length;
+    const filteredNewCount = filteredMatches.filter(m => m.matchType === 'NONE').length;
 
 
     // Helpers de formatação
@@ -469,6 +623,37 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                         className="hidden"
                         onChange={handleFileUpload}
                     />
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1 shadow-sm">
+                        <span className="text-xs font-bold text-gray-500 uppercase">Conta:</span>
+                        <select 
+                            value={selectedAccountId}
+                            onChange={(e) => setSelectedAccountId(e.target.value)}
+                            className="bg-transparent text-sm font-bold text-gray-800 dark:text-white border-none focus:ring-0 cursor-pointer"
+                        >
+                            {data.accounts.map(acc => (
+                                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {bankTransactions.length > 0 && (
+                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1 shadow-sm">
+                            <span className="text-xs font-bold text-gray-500 uppercase">Mês:</span>
+                            <select 
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="bg-transparent text-sm font-bold text-gray-800 dark:text-white border-none focus:ring-0 cursor-pointer"
+                            >
+                                <option value="ALL">Todos os Meses</option>
+                                {getAvailableMonths().map(m => (
+                                    <option key={m} value={m}>
+                                        {new Date(m + '-01T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
@@ -508,35 +693,43 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                             <div className="grid grid-cols-3 gap-8 text-center w-full md:w-auto">
                                 <div>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Extrato</p>
-                                    <p className="text-2xl font-bold text-gray-800 dark:text-white">{bankTransactions.length}</p>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Filtrados</p>
+                                    <p className="text-2xl font-bold text-gray-800 dark:text-white">{filteredMatches.length}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Iguais</p>
-                                    <p className="text-2xl font-bold text-emerald-600">{exactCount}</p>
+                                    <p className="text-2xl font-bold text-emerald-600">{filteredExactCount}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-1">Novos</p>
-                                    <p className="text-2xl font-bold text-amber-600">{newCount}</p>
+                                    <p className="text-2xl font-bold text-amber-600">{filteredNewCount}</p>
                                 </div>
                             </div>
 
-                            <div className="flex gap-3 w-full md:w-auto">
+                            <div className="flex flex-wrap gap-2">
                                 <button
                                     onClick={handleBulkConciliate}
-                                    disabled={exactCount === 0}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={filteredExactCount === 0}
+                                    className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <CheckCircle size={18} />
-                                    Conciliar ({exactCount})
+                                    Conciliar ({filteredExactCount})
                                 </button>
                                 <button
-                                    onClick={handleBulkAdd}
-                                    disabled={newCount === 0}
-                                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-none rounded-xl font-bold transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    onClick={() => handleBulkAdd(false)}
+                                    disabled={filteredNewCount === 0}
+                                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <ListPlus size={18} />
-                                    Importar Novos ({newCount})
+                                    Importar Novos ({filteredNewCount})
+                                </button>
+                                <button
+                                    onClick={() => handleBulkAdd(true)}
+                                    disabled={filteredMatches.length === 0}
+                                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-none rounded-xl font-bold transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <CheckSquare size={18} />
+                                    Forçar Tudo ({filteredMatches.length})
                                 </button>
                             </div>
                         </div>
@@ -550,14 +743,14 @@ const Reconciliation: React.FC<{ onManualAdd?: (t: Partial<Transaction>) => void
                         </div>
 
                         <div className="divide-y divide-gray-100 dark:divide-slate-700">
-                            {matches.length === 0 ? (
+                            {filteredMatches.length === 0 ? (
                                 <div className="p-12 text-center text-gray-500 flex flex-col items-center gap-2">
                                     <CheckCircle size={48} className="text-emerald-200 mb-2" />
                                     <p className="font-medium">Tudo limpo!</p>
-                                    <p className="text-sm">Todas as transações foram conciliadas.</p>
+                                    <p className="text-sm">Nenhuma transação pendente para este filtro.</p>
                                 </div>
                             ) : (
-                                matches.map(m => {
+                                filteredMatches.map(m => {
                                     // Encontrar categoria sugerida para exibição
                                     const suggestedCatId = getSuggestedCategory(m.bankTx);
                                     const suggestedCat = data.categories.find(c => c.id === suggestedCatId);

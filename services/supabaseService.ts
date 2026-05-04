@@ -172,6 +172,19 @@ export const supabaseService = {
         }
     },
 
+    addTransactions: async (ts: Transaction[]) => {
+        const payloads = ts.map(t => {
+            const { id, ...payload } = mapToSnake(t);
+            return { id, ...payload };
+        });
+        
+        const { error } = await supabase.from('transactions').insert(payloads);
+        if (error) {
+            console.error('[supabaseService] Erro ao inserir transações em lote:', error.message, error.code);
+            throw new Error(`Erro ao salvar lote: ${error.message}`);
+        }
+    },
+
     updateTransaction: async (t: Transaction) => {
         const { id, ...payload } = mapToSnake(t);
         const { error } = await supabase.from('transactions').update(payload).eq('id', id);
